@@ -1,10 +1,10 @@
 import os
 import vertexai
 from vertexai.generative_models import GenerativeModel
-
+from dotenv import load_dotenv
 from config import GEMINI_CONFIG
 
-
+load_dotenv()
 class GeminiController:
     """
     Controller for managing interactions with the Gemini model on Google Cloud Vertex AI.
@@ -22,9 +22,8 @@ class GeminiController:
         self.model_name = model_name
 
         # Set the path to the service account key file
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
-            "credentials/service-account.json"
-        )
+        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials/service-account.json")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
         # Initialize Vertex AI with project and location
         vertexai.init(project=self.project_id, location=self.location)
