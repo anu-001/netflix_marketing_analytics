@@ -1,0 +1,3 @@
+Set your database credentials in "config.py"
+Set your GCP project id for Gemini in "config.py"
+Save your Service Account in the folders "credentials" with the name "service-account.json"
