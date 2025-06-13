@@ -1,6 +1,9 @@
 import json
 import pandas as pd
 from sqlalchemy import create_engine
+from sqlalchemy import text
+import re
+import unicodedata
 
 from config import DB_CONFIG
 
@@ -146,3 +149,133 @@ class PeopleController:
                         print(f"Person already exists: {existing_people[0]}")
 
                     print("\n")
+
+##########################################################
+
+       # Normalization function for both matching and processing
+    def normalize_name(self, name):
+        name = (
+            name.strip()
+            .strip("'\"")
+            .replace("‘", "")
+            .replace("’", "")
+            .replace("“", "")
+            .replace("”", "")
+            .replace("\u200b", "")
+            .replace("\u00a0", " ")
+            .replace("-", "")  # remove hyphens
+            .strip()
+        )
+        # Unicode normalization (critical for Ł, é, etc.)
+        name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
+        return name
+
+    def populate_people_table_from_temp(self):
+        """
+        Fill in the people table using names from temp_people where processed = FALSE.
+        """
+        conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+        engine = create_engine(conn_string)
+
+        # Load unprocessed records
+        result_df = pd.read_sql(
+            'SELECT name FROM public.temp_people WHERE processed = FALSE ORDER BY name',
+            con=engine
+        )
+        temp_people = result_df.to_dict(orient="records")
+
+        for record in temp_people[:100]:  # You can adjust batch size anytime
+            print("\n", record)
+
+            raw_name = record["name"]
+
+            # ✅ Clean name for processing
+            full_name = self.normalize_name(raw_name)
+            print(f"🔍 Processing (normalized): {full_name}")
+
+            # Parse with Gemini
+            common_controller = CommonController()
+            parsed = common_controller.parse_full_name(full_name)
+
+            # ✅ Skip if parsing failed format
+            if not isinstance(parsed, dict):
+                print(f"⚠️ Skipping '{full_name}' — unexpected format: {type(parsed).__name__}")
+                self.mark_as_processed_by_name(engine, raw_name)
+                continue
+
+            first_name = parsed.get("first_name")
+            middle_name = parsed.get("middle_name")
+            last_name = parsed.get("last_name")
+
+            first_name = first_name if first_name != "unknown" else None
+            middle_name = middle_name if middle_name != "unknown" else None
+            last_name = last_name if last_name != "unknown" else None
+
+            if first_name is None:
+                print(f"⚠️ Fallback — using full name as first_name for: '{full_name}'")
+                first_name = full_name
+                middle_name = None
+                last_name = None
+
+            if not first_name or first_name.strip() == "":
+                print(f"⚠️ Skipping — no valid first name: '{full_name}'")
+                self.mark_as_processed_by_name(engine, raw_name)
+                continue
+
+            people_repo = PeopleRepository()
+            existing = people_repo.get_by_name(first_name, middle_name, last_name)
+
+            if not existing:
+                created = people_repo.create({
+                    "first_name": first_name,
+                    "middle_name": middle_name,
+                    "last_name": last_name
+                })
+                print(f"✅ Created: {created}")
+            else:
+                print(f"🟡 Already exists: {existing[0]}")
+
+            self.mark_as_processed_by_name(engine, raw_name)
+
+    def mark_as_processed_by_name(self, engine, original_name):
+        """
+        Mark processed using normalized matching (Python-side)
+        """
+        try:
+            # Load all unprocessed names again
+            result_df = pd.read_sql(
+                'SELECT name FROM public.temp_people WHERE processed = FALSE',
+                con=engine
+            )
+            temp_people = result_df.to_dict(orient="records")
+
+            target_normalized = self.normalize_name(original_name)
+
+            for row in temp_people:
+                db_name = row["name"]
+                db_normalized = self.normalize_name(db_name)
+
+                if db_normalized == target_normalized:
+                    connection = engine.connect()
+                    transaction = connection.begin()
+                    connection.execute(
+                        text("""
+                            UPDATE public.temp_people
+                            SET processed = TRUE
+                            WHERE name = :name
+                        """),
+                        {"name": db_name}
+                    )
+                    transaction.commit()
+                    connection.close()
+                    print(f"✔️ Marked '{db_name}' as processed (matched to '{original_name}')")
+                    return  # ✅ done for this match
+
+            print(f"⚠️ Could not find normalized match for '{original_name}'")
+
+        except Exception as e:
+            print(f"❌ Failed to update '{original_name}': {e}")
+
+
+
+
