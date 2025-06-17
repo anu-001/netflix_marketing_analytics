@@ -10,7 +10,7 @@ credentials/*.json
 .env
 .env.local
 .env.*.local
-
+fin_ml.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
