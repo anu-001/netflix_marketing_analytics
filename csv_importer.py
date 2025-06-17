@@ -33,9 +33,9 @@ def main():
     csv_path = "input/netflix_titles.csv"
 
     # Save CSV file in the database
-    # print("Saving CSV to database...")
+    print("Saving CSV to database...")
 
-    # # Initialize the CSV handler
+    # Initialize the CSV handler
     # netflix_csv = CSVController(csv_path)
     # netflix_csv.save_csv_to_database(
     #     table_name="temp_netflix_titles",
@@ -48,7 +48,8 @@ def main():
     # temp_netflix_titles_controller = TempNetflixTitlesController()
     # temp_netflix_titles_controller.set_missing_directors()
 
-    # # Set missing cast
+    # Set missing cast
+
     # print("Setting missing cast...")
     # temp_netflix_titles_controller.set_missing_actors()
 
@@ -68,12 +69,16 @@ def main():
     # print("🔄 Populating the people table from temp_people using Gemini...")
     # people_controller.populate_people_table_from_temp()
 
-    # STEP 2: PROCESS LOOKUP TABLES
-    print("\n" + "="*60)
-    print("📋 STEP 2: PROCESSING LOOKUP TABLES")
-    print("="*60)
+    # # STEP 2: PROCESS LOOKUP TABLES
+    # print("\n" + "="*60)
+    # print("📋 STEP 2: PROCESSING LOOKUP TABLES")
+    # print("="*60)
     
+
     # Add ratings processing
+
+    # # Add ratings processing
+
     # print("🔄 Creating temp_ratings table...")
     # ratings_controller = RatingsController()
     # ratings_controller.create_temp_ratings_table()
@@ -97,20 +102,24 @@ def main():
     # print("🔄 Populating the categories table from temp_categories...")
     # categories_controller.populate_categories_table_from_temp()
 
-    # Add countries processing
-    print("🔄 Creating temp_countries table...")
-    countries_controller = CountriesController()
-    countries_controller.create_temp_countries_table()
+    # # Add countries processing
+    # print("🔄 Creating temp_countries table...")
+    # countries_controller = CountriesController()
+    # countries_controller.create_temp_countries_table()
     
-    print("🔄 Populating the countries table from temp_countries...")
-    countries_controller.populate_countries_table_from_temp()
+    # print("🔄 Populating the countries table from temp_countries...")
+    # countries_controller.populate_countries_table_from_temp()
 
-    # STEP 3: PROCESS MAIN TITLES TABLE
-    print("\n" + "="*60)
-    print("🎬 STEP 3: PROCESSING MAIN TITLES TABLE")
-    print("="*60)
+    # # STEP 3: PROCESS MAIN TITLES TABLE
+    # print("\n" + "="*60)
+    # print("🎬 STEP 3: PROCESSING MAIN TITLES TABLE")
+    # print("="*60)
     
+
     # Use complete titles controller (both old and new junction tables)
+
+    # # Use complete titles controller (both old and new junction tables)
+
     # print("🔄 Populating the titles table with CORRECTED junction tables...")
     # titles_controller_complete = TitlesControllerComplete()
     # titles_controller_complete.populate_titles_table_from_temp_with_corrected_junctions()
@@ -169,51 +178,51 @@ def main():
     # print("🔄 Populating the countries_titles table from temp_countries_titles...")
     # countries_titles_controller.populate_countries_titles_table_from_temp()
 
-    # Final status check
-    print("\n" + "=" * 80)
-    print("🎉 Netflix Data Processing Pipeline Complete!")
-    print("   All tables now follow ERD naming conventions!")
-    print("=" * 80)
+    # # Final status check
+    # print("\n" + "=" * 80)
+    # print("🎉 Netflix Data Processing Pipeline Complete!")
+    # print("   All tables now follow ERD naming conventions!")
+    # print("=" * 80)
     
-    print("\n📊 FINAL PROCESSING SUMMARY:")
-    tracker.print_processing_dashboard()
+    # print("\n📊 FINAL PROCESSING SUMMARY:")
+    # tracker.print_processing_dashboard()
 
-    print("\n📋 FINAL TABLE SUMMARY:")
-    print("   MAIN TABLES (6):")
-    print("   ✅ people")
-    print("   ✅ ratings") 
-    print("   ✅ title_types")
-    print("   ✅ categories")
-    print("   ✅ countries")
-    print("   ✅ titles")
-    print("   ")
-    print("   JUNCTION TABLES - Legacy Naming (4):")
-    print("   ✅ actors (person_id, title_id)")
-    print("   ✅ directors (person_id, title_id)")
-    print("   ✅ title_categories (title_id, category_id)")
-    print("   ✅ title_countries (title_id, country_id)")
-    print("   ")
-    print("   JUNCTION TABLES - ERD Compliant Naming (4):")
-    print("   ✅ actor_titles (person_id, title_id)")
-    print("   ✅ director_titles (person_id, title_id)")
-    print("   ✅ categories_titles (category_id, title_id)")
-    print("   ✅ countries_titles (country_id, title_id)")
-    print("   ")
-    print("   TRACKING TABLE (1):")
-    print("   ✅ processing_status")
-    print("\n" + "="*80)
-    print("📝 SUMMARY:")
-    print("   ✅ Total Main Tables: 6")
-    print("   ✅ Total Junction Tables: 8 (4 legacy + 4 ERD compliant)")
-    print("   ✅ Total Tracking Tables: 1")
-    print("   ✅ GRAND TOTAL: 15 production tables")
-    print("   ")
-    print("   🔧 ERD Corrections Made:")
-    print("   ✅ title_categories → categories_titles")
-    print("   ✅ title_countries → countries_titles")
-    print("   ✅ actors → actor_titles (also available)")
-    print("   ✅ directors → director_titles (also available)")
-    print("="*80)
+    # print("\n📋 FINAL TABLE SUMMARY:")
+    # print("   MAIN TABLES (6):")
+    # print("   ✅ people")
+    # print("   ✅ ratings") 
+    # print("   ✅ title_types")
+    # print("   ✅ categories")
+    # print("   ✅ countries")
+    # print("   ✅ titles")
+    # print("   ")
+    # print("   JUNCTION TABLES - Legacy Naming (4):")
+    # print("   ✅ actors (person_id, title_id)")
+    # print("   ✅ directors (person_id, title_id)")
+    # print("   ✅ title_categories (title_id, category_id)")
+    # print("   ✅ title_countries (title_id, country_id)")
+    # print("   ")
+    # print("   JUNCTION TABLES - ERD Compliant Naming (4):")
+    # print("   ✅ actor_titles (person_id, title_id)")
+    # print("   ✅ director_titles (person_id, title_id)")
+    # print("   ✅ categories_titles (category_id, title_id)")
+    # print("   ✅ countries_titles (country_id, title_id)")
+    # print("   ")
+    # print("   TRACKING TABLE (1):")
+    # print("   ✅ processing_status")
+    # print("\n" + "="*80)
+    # print("📝 SUMMARY:")
+    # print("   ✅ Total Main Tables: 6")
+    # print("   ✅ Total Junction Tables: 8 (4 legacy + 4 ERD compliant)")
+    # print("   ✅ Total Tracking Tables: 1")
+    # print("   ✅ GRAND TOTAL: 15 production tables")
+    # print("   ")
+    # print("   🔧 ERD Corrections Made:")
+    # print("   ✅ title_categories → categories_titles")
+    # print("   ✅ title_countries → countries_titles")
+    # print("   ✅ actors → actor_titles (also available)")
+    # print("   ✅ directors → director_titles (also available)")
+    # print("="*80)
 
 
 if __name__ == "__main__":
