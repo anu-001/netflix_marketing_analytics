@@ -33,40 +33,40 @@ def main():
     csv_path = "input/netflix_titles.csv"
 
     # Save CSV file in the database
-    print("Saving CSV to database...")
+    # print("Saving CSV to database...")
 
-    # Initialize the CSV handler
-    netflix_csv = CSVController(csv_path)
-    netflix_csv.save_csv_to_database(
-        table_name="temp_netflix_titles",
-        schema="public"
-    )
+    # # Initialize the CSV handler
+    # netflix_csv = CSVController(csv_path)
+    # netflix_csv.save_csv_to_database(
+    #     table_name="temp_netflix_titles",
+    #     schema="public"
+    # )
 
     # Set missing directors
-    print("Setting missing directors...")
-    # Initialize the temporary Netflix titles controller
-    temp_netflix_titles_controller = TempNetflixTitlesController()
-    temp_netflix_titles_controller.set_missing_directors()
+    # print("Setting missing directors...")
+    # # Initialize the temporary Netflix titles controller
+    # temp_netflix_titles_controller = TempNetflixTitlesController()
+    # temp_netflix_titles_controller.set_missing_directors()
 
-    # Set missing cast
-    print("Setting missing cast...")
-    temp_netflix_titles_controller.set_missing_actors()
+    # # Set missing cast
+    # print("Setting missing cast...")
+    # temp_netflix_titles_controller.set_missing_actors()
 
-    # Set missing countries
-    print("Setting missing countries...")
-    temp_netflix_titles_controller.set_missing_countries()
+    # # Set missing countries
+    # print("Setting missing countries...")
+    # temp_netflix_titles_controller.set_missing_countries()
 
-    # STEP 1: PROCESS PEOPLE
-    print("\n" + "="*60)
-    print("👥 STEP 1: PROCESSING PEOPLE")
-    print("="*60)
+    # # STEP 1: PROCESS PEOPLE
+    # print("\n" + "="*60)
+    # print("👥 STEP 1: PROCESSING PEOPLE")
+    # print("="*60)
     
-    print("🔄 Creating temp_people table...")
-    people_controller = PeopleController()
-    people_controller.create_temp_people_table()
+    # print("🔄 Creating temp_people table...")
+    # people_controller = PeopleController()
+    # people_controller.create_temp_people_table()
 
-    print("🔄 Populating the people table from temp_people using Gemini...")
-    people_controller.populate_people_table_from_temp()
+    # print("🔄 Populating the people table from temp_people using Gemini...")
+    # people_controller.populate_people_table_from_temp()
 
     # STEP 2: PROCESS LOOKUP TABLES
     print("\n" + "="*60)
@@ -74,28 +74,28 @@ def main():
     print("="*60)
     
     # Add ratings processing
-    print("🔄 Creating temp_ratings table...")
-    ratings_controller = RatingsController()
-    ratings_controller.create_temp_ratings_table()
+    # print("🔄 Creating temp_ratings table...")
+    # ratings_controller = RatingsController()
+    # ratings_controller.create_temp_ratings_table()
     
-    print("🔄 Populating the ratings table from temp_ratings...")
-    ratings_controller.populate_ratings_table_from_temp()
+    # print("🔄 Populating the ratings table from temp_ratings...")
+    # ratings_controller.populate_ratings_table_from_temp()
 
-    # Add title types processing
-    print("🔄 Creating temp_title_types table...")
-    title_types_controller = TitleTypesController()
-    title_types_controller.create_temp_title_types_table()
+    # # Add title types processing
+    # print("🔄 Creating temp_title_types table...")
+    # title_types_controller = TitleTypesController()
+    # title_types_controller.create_temp_title_types_table()
     
-    print("🔄 Populating the title_types table from temp_title_types...")
-    title_types_controller.populate_title_types_table_from_temp()
+    # print("🔄 Populating the title_types table from temp_title_types...")
+    # title_types_controller.populate_title_types_table_from_temp()
 
-    # Add categories processing
-    print("🔄 Creating temp_categories table...")
-    categories_controller = CategoriesController()
-    categories_controller.create_temp_categories_table()
+    # # Add categories processing
+    # print("🔄 Creating temp_categories table...")
+    # categories_controller = CategoriesController()
+    # categories_controller.create_temp_categories_table()
     
-    print("🔄 Populating the categories table from temp_categories...")
-    categories_controller.populate_categories_table_from_temp()
+    # print("🔄 Populating the categories table from temp_categories...")
+    # categories_controller.populate_categories_table_from_temp()
 
     # Add countries processing
     print("🔄 Creating temp_countries table...")
@@ -111,63 +111,63 @@ def main():
     print("="*60)
     
     # Use complete titles controller (both old and new junction tables)
-    print("🔄 Populating the titles table with CORRECTED junction tables...")
-    titles_controller_complete = TitlesControllerComplete()
-    titles_controller_complete.populate_titles_table_from_temp_with_corrected_junctions()
+    # print("🔄 Populating the titles table with CORRECTED junction tables...")
+    # titles_controller_complete = TitlesControllerComplete()
+    # titles_controller_complete.populate_titles_table_from_temp_with_corrected_junctions()
 
-    # STEP 4: PROCESS PEOPLE-TITLE JUNCTION TABLES
-    print("\n" + "="*60)
-    print("🎭 STEP 4: PROCESSING PEOPLE-TITLE JUNCTION TABLES")
-    print("="*60)
+    # # STEP 4: PROCESS PEOPLE-TITLE JUNCTION TABLES
+    # print("\n" + "="*60)
+    # print("🎭 STEP 4: PROCESSING PEOPLE-TITLE JUNCTION TABLES")
+    # print("="*60)
     
-    # Legacy naming
-    print("🔄 Creating temp_actors table...")
-    actors_controller = ActorsController()
-    actors_controller.create_temp_actors_table()
+    # # Legacy naming
+    # print("🔄 Creating temp_actors table...")
+    # actors_controller = ActorsController()
+    # actors_controller.create_temp_actors_table()
     
-    print("🔄 Populating the actors table from temp_actors...")
-    actors_controller.populate_actors_table_from_temp()
+    # print("🔄 Populating the actors table from temp_actors...")
+    # actors_controller.populate_actors_table_from_temp()
 
-    print("🔄 Creating temp_directors table...")
-    directors_controller = DirectorsController()
-    directors_controller.create_temp_directors_table()
+    # print("🔄 Creating temp_directors table...")
+    # directors_controller = DirectorsController()
+    # directors_controller.create_temp_directors_table()
     
-    print("🔄 Populating the directors table from temp_directors...")
-    directors_controller.populate_directors_table_from_temp()
+    # print("🔄 Populating the directors table from temp_directors...")
+    # directors_controller.populate_directors_table_from_temp()
 
-    # ERD compliant naming
-    print("🔄 Creating temp_actor_titles table...")
-    actor_titles_controller = ActorTitlesController()
-    actor_titles_controller.create_temp_actor_titles_table()
+    # # ERD compliant naming
+    # print("🔄 Creating temp_actor_titles table...")
+    # actor_titles_controller = ActorTitlesController()
+    # actor_titles_controller.create_temp_actor_titles_table()
     
-    print("🔄 Populating the actor_titles table from temp_actor_titles...")
-    actor_titles_controller.populate_actor_titles_table_from_temp()
+    # print("🔄 Populating the actor_titles table from temp_actor_titles...")
+    # actor_titles_controller.populate_actor_titles_table_from_temp()
 
-    print("🔄 Creating temp_director_titles table...")
-    director_titles_controller = DirectorTitlesController()
-    director_titles_controller.create_temp_director_titles_table()
+    # print("🔄 Creating temp_director_titles table...")
+    # director_titles_controller = DirectorTitlesController()
+    # director_titles_controller.create_temp_director_titles_table()
     
-    print("🔄 Populating the director_titles table from temp_director_titles...")
-    director_titles_controller.populate_director_titles_table_from_temp()
+    # print("🔄 Populating the director_titles table from temp_director_titles...")
+    # director_titles_controller.populate_director_titles_table_from_temp()
 
-    # STEP 5: PROCESS CATEGORY/COUNTRY-TITLE JUNCTION TABLES
-    print("\n" + "="*60)
-    print("🌍 STEP 5: PROCESSING CATEGORY/COUNTRY-TITLE JUNCTION TABLES")
-    print("="*60)
+    # # STEP 5: PROCESS CATEGORY/COUNTRY-TITLE JUNCTION TABLES
+    # print("\n" + "="*60)
+    # print("🌍 STEP 5: PROCESSING CATEGORY/COUNTRY-TITLE JUNCTION TABLES")
+    # print("="*60)
     
-    print("🔄 Creating temp_categories_titles table...")
-    categories_titles_controller = CategoriesTitlesController()
-    categories_titles_controller.create_temp_categories_titles_table()
+    # print("🔄 Creating temp_categories_titles table...")
+    # categories_titles_controller = CategoriesTitlesController()
+    # categories_titles_controller.create_temp_categories_titles_table()
     
-    print("🔄 Populating the categories_titles table from temp_categories_titles...")
-    categories_titles_controller.populate_categories_titles_table_from_temp()
+    # print("🔄 Populating the categories_titles table from temp_categories_titles...")
+    # categories_titles_controller.populate_categories_titles_table_from_temp()
 
-    print("🔄 Creating temp_countries_titles table...")
-    countries_titles_controller = CountriesTitlesController()
-    countries_titles_controller.create_temp_countries_titles_table()
+    # print("🔄 Creating temp_countries_titles table...")
+    # countries_titles_controller = CountriesTitlesController()
+    # countries_titles_controller.create_temp_countries_titles_table()
     
-    print("🔄 Populating the countries_titles table from temp_countries_titles...")
-    countries_titles_controller.populate_countries_titles_table_from_temp()
+    # print("🔄 Populating the countries_titles table from temp_countries_titles...")
+    # countries_titles_controller.populate_countries_titles_table_from_temp()
 
     # Final status check
     print("\n" + "=" * 80)

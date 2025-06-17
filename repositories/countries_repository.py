@@ -13,19 +13,38 @@ class CountriesRepository(BaseRepository):
     def __init__(self):
         super().__init__(table_name="public.countries", id_column="country_id")
 
-    def get_by_country_name(self, country_name: str):
+    def get_by_description(self, description: str):
         """
-        Get country by country name
+        Get country by description (since table only has country_id and description)
         """
         try:
             cursor = self.db.get_dict_cursor()
             cursor.execute(
-                f"SELECT * FROM {self.table_name} WHERE country_name = %s",
+                f"SELECT * FROM {self.table_name} WHERE description = %s",
+                (description,)
+            )
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error getting country by description: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+
+    def get_by_country_name(self, country_name: str):
+        """
+        Get country by original country name (now stored directly as description)
+        """
+        try:
+            cursor = self.db.get_dict_cursor()
+            # Country name is now stored directly as description
+            cursor.execute(
+                f"SELECT * FROM {self.table_name} WHERE description = %s",
                 (country_name,)
             )
             return cursor.fetchall()
         except Exception as e:
-            print(f"Error getting country by name: {e}")
+            print(f"Error getting country by country name: {e}")
             raise
         finally:
             if cursor:
@@ -33,13 +52,13 @@ class CountriesRepository(BaseRepository):
 
     def create(self, data: dict):
         """
-        Create a new country record
+        Create a new country record (table only has country_id and description)
         """
         try:
             cursor = self.db.get_dict_cursor()
             cursor.execute(
-                f"INSERT INTO {self.table_name} (country_name, country_code) VALUES (%s, %s) RETURNING *",
-                (data.get("country_name"), data.get("country_code"))
+                f"INSERT INTO {self.table_name} (description) VALUES (%s) RETURNING *",
+                (data.get("description"),)
             )
             result = cursor.fetchone()
             self.db.commit()
@@ -48,5 +67,7 @@ class CountriesRepository(BaseRepository):
             print(f"Error creating country: {e}")
             raise
         finally:
+            if cursor:
+                cursor.close()
             if cursor:
                 cursor.close()
