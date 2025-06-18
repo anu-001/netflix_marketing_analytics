@@ -1,184 +1,163 @@
-import pandas as pd
-from sqlalchemy import create_engine
-from sqlalchemy import text
 import re
 import unicodedata
+import pandas as pd
+from sqlalchemy import create_engine, text
 
 from config import DB_CONFIG
 from repositories.temp_netflix_titles_repository import TempNetflixTitlesRepository
-from repositories.people_repository import PeopleRepository
-from repositories.directors_repository import DirectorsRepository
-from repositories.titles_repository import TitlesRepository
 from controllers.common_controller import CommonController
-
+from repositories.people_repository import PeopleRepository
 
 class DirectorsController:
-    """
-    Controller for managing directors
-    """
 
     def __init__(self):
-        pass
-
-    def create_temp_directors_table(self):
-        """
-        Create a temporary directors table from the temporary Netflix titles repository.
-        """
-        temp_netflix_titles_repo = TempNetflixTitlesRepository()
-        records = temp_netflix_titles_repo.get_all()
-
-        directors_list = []
-        
-        for record in records:
-            # Check if the director field exists and is not None
-            if record["director"] and record["director"] != "unknown":
-                # Split the director string by commas
-                raw_director_names = record["director"].split(",")
-                
-                # Clean up each director name and associate with show_id
-                for name in raw_director_names:
-                    clean_name = name.strip()
-                    if clean_name:  # Only add non-empty names
-                        directors_list.append({
-                            "director_name": clean_name,
-                            "show_id": record["show_id"],
-                            "processed": False
-                        })
-
-        print(f"\nFound {len(directors_list)} director-title relationships in the temporary Netflix titles repository.")
-
-        # Create Pandas DataFrame
-        directors_df = pd.DataFrame(directors_list)
-
-        # Save the DataFrame to a PostgreSQL database table
-        table_name = "temp_directors"
-        schema = "public"
-        conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-        engine = create_engine(conn_string)
-        directors_df.to_sql(name=table_name, con=engine.connect(), schema=schema, if_exists="replace", index=False)
-        print(f"Successfully saved data to table '{table_name}' in schema '{schema}'.")
+        self.engine = create_engine(
+            f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+        )
+        self.temp_repo = TempNetflixTitlesRepository()
+        self.people_repo = PeopleRepository()
 
     def normalize_name(self, name):
-        """
-        Normalize name for comparison (same as in PeopleController)
-        """
-        if not name:
-            return ""
-        
-        # Basic cleanup
-        name = re.sub(r'[^\w\s]', '', name)
-        name = re.sub(r'\s+', ' ', name)
-        name = name.strip().lower()
-        
-        # Remove accents
-        name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
-        return name
+        name = (
+            name.strip()
+            .strip("'\"")
+            .replace("‘", "")
+            .replace("’", "")
+            .replace("“", "")
+            .replace("”", "")
+            .replace("\u200b", "")
+            .replace("\u00a0", " ")
+            .replace("-", "")
+            .strip()
+        )
+        return unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
 
-    def populate_directors_table_from_temp(self):
-        """
-        Fill in the directors table using data from temp_directors where processed = FALSE.
-        """
-        conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-        engine = create_engine(conn_string)
+    def create_temp_directors_table(self):
+        records = self.temp_repo.get_all()
 
-        # Load unprocessed records
+        directors = []
+        for r in records:
+            if r["director"] and r["director"].lower() != "unknown":
+                names = r["director"].split(",")
+                for name in names:
+                    directors.append(name.strip())
+
+        directors = sorted(set(directors))
+        df = pd.DataFrame(directors, columns=["name"])
+        df["processed"] = False
+
+        df.to_sql(name="temp_directors", con=self.engine.connect(), schema="public", if_exists="replace", index=False)
+        print(f"✅ Saved {len(directors)} unique directors to 'temp_directors' table.")
+
+    def populate_directors_table_from_temp(self, limit=5):
+        print("🚀 Starting populate_directors_table_from_temp()...\n")
         result_df = pd.read_sql(
-            'SELECT director_name, show_id FROM public.temp_directors WHERE processed = FALSE ORDER BY director_name',
-            con=engine
+            'SELECT name FROM public.temp_directors WHERE processed = FALSE ORDER BY name',
+            con=self.engine
         )
         temp_directors = result_df.to_dict(orient="records")
+        inserted_count = 0
+        already_exists = 0
+        not_found = 0
+        parse_failed = 0
 
-        for record in temp_directors[:100]:  # Process in batches
-            print("\n", record)
-            
-            raw_name = record["director_name"]
-            show_id = record["show_id"]
-            
-            # Clean name for processing
-            full_name = self.normalize_name(raw_name)
-            print(f"🔍 Processing director: {full_name} for show: {show_id}")
+        for record in temp_directors[:limit]:
+            raw_name = record["name"]
+            normalized = self.normalize_name(raw_name)
+            print(f"\n🎯 Processing: {normalized}")
 
-            # Parse with Gemini
-            common_controller = CommonController()
-            parsed = common_controller.parse_full_name(full_name)
-
-            # Skip if parsing failed
+            parsed = CommonController().parse_full_name(normalized)
             if not isinstance(parsed, dict):
-                print(f"⚠️ Skipping '{full_name}' — unexpected format: {type(parsed).__name__}")
-                self.mark_as_processed(engine, raw_name, show_id)
+                print(f"⚠️ Skipping invalid parse: {normalized}")
+                self.mark_as_processed_by_name(raw_name)
+                parse_failed += 1
                 continue
 
-            first_name = parsed.get("first_name")
-            middle_name = parsed.get("middle_name")
-            last_name = parsed.get("last_name")
+            first = parsed.get("first_name") if parsed.get("first_name") != "unknown" else None
+            middle = parsed.get("middle_name") if parsed.get("middle_name") != "unknown" else None
+            last = parsed.get("last_name") if parsed.get("last_name") != "unknown" else None
 
-            first_name = first_name if first_name != "unknown" else None
-            middle_name = middle_name if middle_name != "unknown" else None
-            last_name = last_name if last_name != "unknown" else None
+            print(f"🔍 Parsed → First: {first}, Middle: {middle}, Last: {last}")
 
-            if first_name is None:
-                print(f"⚠️ Fallback — using full name as first_name for: '{full_name}'")
-                first_name = full_name
-                middle_name = None
-                last_name = None
+            if not first:
+                first = normalized
 
-            if not first_name or first_name.strip() == "":
-                print(f"⚠️ Skipping — no valid first name: '{full_name}'")
-                self.mark_as_processed(engine, raw_name, show_id)
+            print("👤 Searching in people table...")
+            match = self.people_repo.get_by_name(first, middle, last)
+            print(f"🧾 People match result: {match}")
+
+            if not match:
+                print(f"❌ Not found in people: {normalized}")
+                self.mark_as_processed_by_name(raw_name)
+                not_found += 1
                 continue
 
-            # Find the person in the people table
-            people_repo = PeopleRepository()
-            existing_person = people_repo.get_by_name(first_name, middle_name, last_name)
+            person_id = match[0]["person_id"]
 
-            if not existing_person:
-                print(f"⚠️ Person not found in people table: {first_name} {middle_name} {last_name}")
-                self.mark_as_processed(engine, raw_name, show_id)
-                continue
+            with self.engine.begin() as conn:
+                exists = conn.execute(
+                    text("SELECT 1 FROM directors WHERE person_id = :pid"),
+                    {"pid": person_id}
+                ).fetchone()
 
-            person_id = existing_person[0]["person_id"]
-            print(f"✅ Found person_id: {person_id}")
+                if exists:
+                    print(f"🟡 Already in directors: {person_id}")
+                    already_exists += 1
+                else:
+                    conn.execute(
+                        text("INSERT INTO directors (person_id) VALUES (:pid)"),
+                        {"pid": person_id}
+                    )
+                    print(f"✅ Inserted person_id into directors: {person_id}")
+                    inserted_count += 1
 
-            # Get the actual title_id from the titles table using show_id
-            titles_repo = TitlesRepository()
-            existing_title = titles_repo.get_by_show_id(show_id)
-            
-            if not existing_title:
-                print(f"⚠️ Title not found in titles table for show_id: {show_id}")
-                self.mark_as_processed(engine, raw_name, show_id)
-                continue
-                
-            title_id = existing_title[0]["title_id"]
-            print(f"✅ Found title_id: {title_id}")
 
-            # Check if director-title relationship already exists
-            directors_repo = DirectorsRepository()
-            existing_director = directors_repo.get_by_person_and_title(person_id, title_id)
+            self.mark_as_processed_by_name(raw_name)
 
-            if not existing_director:
-                # Create new director relationship
-                created = directors_repo.create({
-                    "person_id": person_id,
-                    "title_id": title_id
-                })
-                print(f"✅ Created director relationship: {created}")
-            else:
-                print(f"🟡 Director relationship already exists: {existing_director[0]}")
+        print("🚀 Running from csv_importer.py")
+        print(f"🧠 Pulling from temp_directors...")
 
-            self.mark_as_processed(engine, raw_name, show_id)
+        result_df = pd.read_sql(
+            'SELECT name FROM public.temp_directors WHERE processed = FALSE ORDER BY name',
+            con=self.engine
+        )
+        print(f"📦 Fetched {len(result_df)} unprocessed names")
 
-    def mark_as_processed(self, engine, director_name, show_id):
-        """
-        Mark director as processed in temp_directors table
-        """
+
+        print(f"\n📊 Summary:")
+        print(f"✅ Inserted: {inserted_count}")
+        print(f"🟡 Already existed: {already_exists}")
+        print(f"❌ Not found in people: {not_found}")
+        print(f"⚠️ Parse failed: {parse_failed}")
+        print("🎉 Done!\n")
+
+    def mark_as_processed_by_name(self, original_name, table_name="temp_directors"):
         try:
-            with engine.connect() as conn:
-                conn.execute(
-                    text("UPDATE public.temp_directors SET processed = TRUE WHERE director_name = :director_name AND show_id = :show_id"),
-                    {"director_name": director_name, "show_id": show_id}
-                )
-                conn.commit()
-                print(f"✅ Marked '{director_name}' for show '{show_id}' as processed")
+            result_df = pd.read_sql(
+                f'SELECT name FROM public.{table_name} WHERE processed = FALSE',
+                con=self.engine
+            )
+            temp_names = result_df.to_dict(orient="records")
+            target_norm = self.normalize_name(original_name)
+
+            for row in temp_names:
+                db_name = row["name"]
+                db_norm = self.normalize_name(db_name)
+
+                if db_norm == target_norm:
+                    with self.engine.begin() as connection:
+                        connection.execute(
+                            text(f"""
+                                UPDATE public.{table_name}
+                                SET processed = TRUE
+                                WHERE name = :name
+                            """),
+                            {"name": db_name}
+                        )
+                    print(f"✔️ Marked '{db_name}' as processed")
+                    return
+
+            print(f"⚠️ Could not find normalized match for '{original_name}'")
+
         except Exception as e:
-            print(f"❌ Error marking '{director_name}' as processed: {e}")
-            raise
+            print(f"❌ Failed to mark processed for '{original_name}': {e}")
