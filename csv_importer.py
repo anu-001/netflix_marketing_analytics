@@ -40,11 +40,11 @@ def main():
     print("Saving CSV to database...")
 
     # Initialize the CSV handler
-    netflix_csv = CSVController(csv_path)
-    netflix_csv.save_csv_to_database(
-        table_name="temp_netflix_titles",
-        schema="public"
-    )
+    # netflix_csv = CSVController(csv_path)
+    # netflix_csv.save_csv_to_database(
+    #     table_name="temp_netflix_titles",
+    #     schema="public"
+    # )
 
     # Set missing directors
     print("Setting missing directors...")
@@ -59,18 +59,6 @@ def main():
     # Set missing countries
     # print("Setting missing countries...")
     # temp_netflix_titles_controller.set_missing_countries()
-
-    # Add processed column to temp_netflix_titles table
-    print("Adding processed column to temp_netflix_titles...")
-    conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-    engine = create_engine(conn_string)
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE public.temp_netflix_titles ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT FALSE"))
-            conn.commit()
-        print("✅ Processed column added successfully")
-    except Exception as e:
-        print(f"Note: {e}")
 
     # STEP 1: PROCESS PEOPLE
     # print("\n" + "="*60)
@@ -133,18 +121,21 @@ def main():
     # titles_controller_complete = TitlesControllerComplete()
     # titles_controller_complete.populate_titles_table_from_temp_with_corrected_junctions()
 
-    # # STEP 4: PROCESS PEOPLE-TITLE JUNCTION TABLES
-    # print("\n" + "="*60)
-    # print("🎭 STEP 4: PROCESSING PEOPLE-TITLE JUNCTION TABLES")
-    # print("="*60)
+    # STEP 4: PROCESS ACTORS TABLE
+    print("\n" + "="*60)
+    print("🎭 STEP 4: PROCESSING ACTORS TABLE")
+    print("="*60)
     
-    # # Legacy naming
-    # print("🔄 Creating temp_actors table...")
-    # actors_controller = ActorsController()
-    # actors_controller.create_temp_actors_table()
+    # Actors processing
+    print("🔄 Creating temp_actors table...")
+    actors_controller = ActorsController()
+    actors_controller.create_temp_actors_table()
     
-    # print("🔄 Populating the actors table from temp_actors...")
-    # actors_controller.populate_actors_table_from_temp()
+    print("📊 Checking processing status...")
+    actors_controller.check_processing_status()
+    
+    print("🔄 Populating the actors table from temp_actors...")
+    actors_controller.populate_actors_table_from_temp()  # Process all unprocessed records
 
     # print("🔄 Creating temp_directors table...")
     # directors_controller = DirectorsController()
