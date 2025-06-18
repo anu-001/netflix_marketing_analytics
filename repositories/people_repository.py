@@ -57,3 +57,64 @@ class PeopleRepository(BaseRepository):
             if cursor:
                 cursor.close()
 
+    def get_by_full_name(self, full_name: str):
+        """
+        Get person by full name (as it appears in cast column)
+        Tries different matching strategies to find the person
+
+        Args:
+            full_name (str): Full name to search for
+
+        Returns:
+            list: List of matching people records
+        """
+        try:
+            cursor = self.db.get_dict_cursor()
+
+            # Strategy 1: Try exact match by concatenating first_name, middle_name, and last_name
+            cursor.execute(
+                f"""SELECT * FROM {self.table_name} 
+                    WHERE TRIM(CONCAT(
+                        first_name, 
+                        CASE WHEN middle_name IS NOT NULL AND middle_name != '' THEN ' ' || middle_name ELSE '' END,
+                        CASE WHEN last_name IS NOT NULL AND last_name != '' THEN ' ' || last_name ELSE '' END
+                    )) = %s""",
+                (full_name.strip(),),
+            )
+            result = cursor.fetchall()
+
+            if result:
+                return result
+
+            # Strategy 2: Try fuzzy matching - search in first_name or last_name
+            cursor.execute(
+                f"""SELECT * FROM {self.table_name} 
+                    WHERE first_name ILIKE %s OR last_name ILIKE %s""",
+                (f"%{full_name.strip()}%", f"%{full_name.strip()}%"),
+            )
+            result = cursor.fetchall()
+
+            if result:
+                return result
+
+            # Strategy 3: Try matching by splitting the full name
+            name_parts = full_name.strip().split()
+            if len(name_parts) >= 2:
+                first_name = name_parts[0]
+                last_name = name_parts[-1]
+                cursor.execute(
+                    f"""SELECT * FROM {self.table_name} 
+                        WHERE first_name ILIKE %s AND last_name ILIKE %s""",
+                    (f"%{first_name}%", f"%{last_name}%"),
+                )
+                result = cursor.fetchall()
+
+            return result
+
+        except Exception as e:
+            print(f"Error getting person by full name: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+
