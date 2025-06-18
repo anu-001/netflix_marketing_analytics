@@ -13,19 +13,19 @@ class TitleTypesRepository(BaseRepository):
     def __init__(self):
         super().__init__(table_name="public.title_types", id_column="title_type_id")
 
-    def get_by_type_name(self, type_name: str):
+    def get_by_description(self, description: str):
         """
-        Get title type by type name
+        Get title type by description
         """
         try:
             cursor = self.db.get_dict_cursor()
             cursor.execute(
-                f"SELECT * FROM {self.table_name} WHERE type_name = %s",
-                (type_name,)
+                f"SELECT * FROM {self.table_name} WHERE description = %s",
+                (description,)
             )
             return cursor.fetchall()
         except Exception as e:
-            print(f"Error getting title type by name: {e}")
+            print(f"Error getting title type by description: {e}")
             raise
         finally:
             if cursor:
@@ -33,13 +33,13 @@ class TitleTypesRepository(BaseRepository):
 
     def create(self, data: dict):
         """
-        Create a new title type record
+        Create a new title type record (only description column, title_type_id is auto-generated)
         """
         try:
             cursor = self.db.get_dict_cursor()
             cursor.execute(
-                f"INSERT INTO {self.table_name} (type_name, description) VALUES (%s, %s) RETURNING *",
-                (data.get("type_name"), data.get("description"))
+                f"INSERT INTO {self.table_name} (description) VALUES (%s) RETURNING *",
+                (data.get("description"),)
             )
             result = cursor.fetchone()
             self.db.commit()

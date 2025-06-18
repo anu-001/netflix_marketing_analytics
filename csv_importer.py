@@ -86,12 +86,12 @@ def main():
     # ratings_controller.populate_ratings_table_from_temp()
 
     # Add title types processing
-    # print("🔄 Creating temp_title_types table...")
-    # title_types_controller = TitleTypesController()
-    # title_types_controller.create_temp_title_types_table()
+    print("🔄 Creating temp_title_types table...")
+    title_types_controller = TitleTypesController()
+    title_types_controller.create_temp_title_types_table()
     
-    # print("🔄 Populating the title_types table from temp_title_types...")
-    # title_types_controller.populate_title_types_table_from_temp()
+    print("🔄 Populating the title_types table from temp_title_types...")
+    title_types_controller.populate_title_types_table_from_temp()
 
     # Add categories processing
     # print("🔄 Creating temp_categories table...")
