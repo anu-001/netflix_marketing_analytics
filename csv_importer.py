@@ -11,8 +11,7 @@ from controllers.categories_controller import CategoriesController
 from controllers.countries_controller import CountriesController
 from controllers.categories_titles_controller import CategoriesTitlesController
 from controllers.countries_titles_controller import CountriesTitlesController
-from controllers.titles_controller import TitlesController
-from controllers.titles_controller_complete import TitlesControllerComplete
+from controllers.titles_controller_new import TitlesController
 from controllers.base_tracking_controller import BaseTrackingController
 from sqlalchemy import create_engine, text
 from config import DB_CONFIG
@@ -40,17 +39,17 @@ def main():
     print("Saving CSV to database...")
 
     # Initialize the CSV handler
-    # netflix_csv = CSVController(csv_path)
-    # netflix_csv.save_csv_to_database(
-    #     table_name="temp_netflix_titles",
-    #     schema="public"
-    # )
+    netflix_csv = CSVController(csv_path)
+    netflix_csv.save_csv_to_database(
+        table_name="temp_netflix_titles",
+        schema="public"
+    )
 
     # Set missing directors
     print("Setting missing directors...")
     # Initialize the temporary Netflix titles controller
-    temp_netflix_titles_controller = TempNetflixTitlesController()
-    temp_netflix_titles_controller.set_missing_directors()
+    # temp_netflix_titles_controller = TempNetflixTitlesController()
+    # temp_netflix_titles_controller.set_missing_directors()
 
     # Set missing cast
     # print("Setting missing cast...")
@@ -86,12 +85,12 @@ def main():
     # ratings_controller.populate_ratings_table_from_temp()
 
     # Add title types processing
-    print("🔄 Creating temp_title_types table...")
-    title_types_controller = TitleTypesController()
-    title_types_controller.create_temp_title_types_table()
+    # print("🔄 Creating temp_title_types table...")
+    # title_types_controller = TitleTypesController()
+    # title_types_controller.create_temp_title_types_table()
     
-    print("🔄 Populating the title_types table from temp_title_types...")
-    title_types_controller.populate_title_types_table_from_temp()
+    # print("🔄 Populating the title_types table from temp_title_types...")
+    # title_types_controller.populate_title_types_table_from_temp()
 
     # Add categories processing
     # print("🔄 Creating temp_categories table...")
@@ -102,40 +101,43 @@ def main():
     # categories_controller.populate_categories_table_from_temp()
 
     # Add countries processing
-    print("🔄 Creating temp_countries table...")
-    countries_controller = CountriesController()
-    countries_controller.create_temp_countries_table()
+    # print("🔄 Creating temp_countries table...")
+    # countries_controller = CountriesController()
+    # countries_controller.create_temp_countries_table()
     
-    print("🔄 Populating the countries table from temp_countries...")
-    countries_controller.populate_countries_table_from_temp()
+    # print("🔄 Populating the countries table from temp_countries...")
+    # countries_controller.populate_countries_table_from_temp()
 
     # # STEP 3: PROCESS MAIN TITLES TABLE
-    # print("\n" + "="*60)
-    # STEP 3: PROCESS MAIN TITLES TABLE
-    # print("\n" + "="*60)
-    # print("🎬 STEP 3: PROCESSING MAIN TITLES TABLE")
-    # print("="*60)
-    
-    # # Use complete titles controller (both old and new junction tables)
-    # print("🔄 Populating the titles table with CORRECTED junction tables...")
-    # titles_controller_complete = TitlesControllerComplete()
-    # titles_controller_complete.populate_titles_table_from_temp_with_corrected_junctions()
-
-    # STEP 4: PROCESS ACTORS TABLE
     print("\n" + "="*60)
-    print("🎭 STEP 4: PROCESSING ACTORS TABLE")
+    #STEP 3: PROCESS MAIN TITLES TABLE
+    print("\n" + "="*60)
+    print("🎬 STEP 3: PROCESSING MAIN TITLES TABLE")
     print("="*60)
     
-    # Actors processing
-    print("🔄 Creating temp_actors table...")
-    actors_controller = ActorsController()
-    actors_controller.create_temp_actors_table()
+    # Use new titles controller with temp_titles and processed flag
+    print("🔄 Creating temp_titles table...")
+    titles_controller = TitlesController()
+    titles_controller.create_temp_titles_table()
     
-    print("📊 Checking processing status...")
-    actors_controller.check_processing_status()
+    print("🔄 Populating the titles table from temp_titles...")
+    titles_controller.populate_titles_table_from_temp()
+
+    # STEP 4: PROCESS ACTORS TABLE
+    # print("\n" + "="*60)
+    # print("🎭 STEP 4: PROCESSING ACTORS TABLE")
+    # print("="*60)
     
-    print("🔄 Populating the actors table from temp_actors...")
-    actors_controller.populate_actors_table_from_temp()  # Process all unprocessed records
+    # # Actors processing
+    # print("🔄 Creating temp_actors table...")
+    # actors_controller = ActorsController()
+    # actors_controller.create_temp_actors_table()
+    
+    # print("📊 Checking processing status...")
+    # actors_controller.check_processing_status()
+    
+    # print("🔄 Populating the actors table from temp_actors...")
+    # actors_controller.populate_actors_table_from_temp()  # Process all unprocessed records
 
     # print("🔄 Creating temp_directors table...")
     # directors_controller = DirectorsController()
