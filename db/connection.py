@@ -66,6 +66,13 @@ class DBConnection:
         if self._conn is not None:
             self._conn.commit()
 
+    def rollback(self):
+        """
+        Rollback the current transaction
+        """
+        if self._conn is not None:
+            self._conn.rollback()
+
     def close(self):
         """
         Close the database connection
