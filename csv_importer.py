@@ -31,17 +31,17 @@ def main():
     tracker.print_processing_dashboard()
 
     # Define the path to the CSV file
-    # csv_path = "input/cleaned_netflix_titles.csv"
+    csv_path = "input/cleaned_netflix_titles.csv"
 
-    # # Save CSV file in the database
-    # print("Saving CSV to database...")
+    # Save CSV file in the database
+    print("Saving CSV to database...")
 
-    # # Initialize the CSV handler
-    # netflix_csv = CSVController(csv_path)
-    # netflix_csv.save_csv_to_database(
-    #     table_name="temp_netflix_titles",
-    #     schema="public"
-    # )
+    # Initialize the CSV handler
+    netflix_csv = CSVController(csv_path)
+    netflix_csv.save_csv_to_database(
+        table_name="temp_netflix_titles",
+        schema="public"
+    )
 
     # Set missing directors
     #print("Setting missing directors...")
@@ -152,27 +152,6 @@ def main():
     # print("🔄 Populating the actors table from temp_actors...")
     # actors_controller.populate_actors_table_from_temp()  # Process all unprocessed records
 
-    # print("🔄 Creating temp_directors table...")
-    # directors_controller = DirectorsController()
-    # directors_controller.create_temp_directors_table()
-    
-    # print("🔄 Populating the directors table from temp_directors...")
-    # directors_controller.populate_directors_table_from_temp()
-
-    # # ERD compliant naming
-    # print("🔄 Creating temp_actor_titles table...")
-    # actor_titles_controller = ActorTitlesController()
-    # actor_titles_controller.create_temp_actor_titles_table()
-    
-    # print("🔄 Populating the actor_titles table from temp_actor_titles...")
-    # actor_titles_controller.populate_actor_titles_table_from_temp()
-
-    # print("🔄 Creating temp_director_titles table...")
-    # director_titles_controller = DirectorTitlesController()
-    # director_titles_controller.create_temp_director_titles_table()
-    
-    # print("🔄 Populating the director_titles table from temp_director_titles...")
-    # director_titles_controller.populate_director_titles_table_from_temp()
 
     # STEP 4.5: PROCESS ACTORS-TITLES RELATIONSHIPS
     print("\n" + "="*60)
