@@ -9,10 +9,21 @@ from controllers.base_tracking_controller import BaseTrackingController
 
 class ActorsTitlesController(BaseTrackingController):
     """
-    Optimized controller for managing actors-titles relationships with temp table tracking
-    Note: actors_titles table has actor_id (from actors table) and title_id
-    Creates missing actors by adding to people table first, then actors table
+    Controller for managing actors-titles relationships with resumable processing.
+    
+    Key Features:
+    - Uses temp_actors_titles table for resumable ETL processing
+    - Creates missing actors (adds to people, then actors tables)
+    - Maintains cache for efficient lookups
+    - Processes records individually to avoid transaction cascade failures
+    
+    Note: actors_titles.actor_id references people.person_id (ERD compliance)
     """
+    
+    # Constants
+    DEFAULT_BATCH_SIZE = 500
+    TEMP_TABLE_NAME = "temp_actors_titles"
+    MAIN_TABLE_NAME = "actors_titles"
 
     def __init__(self):
         super().__init__()
@@ -20,96 +31,110 @@ class ActorsTitlesController(BaseTrackingController):
         self.actors_repo = ActorsRepository()
         self.titles_repo = TitlesRepository()
         
-        # Cache for efficient lookups
-        self._people_cache = {}  # Maps person names to actor_id (from actors table)
+        # Caches for efficient lookups
+        self._people_cache = {}  # Maps actor names to actor_id (person_id)
         self._title_cache = {}   # Maps show_id to title_id
+        
+    def _get_engine(self):
+        """Get database engine with connection string"""
+        conn_string = (f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
+                      f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}")
+        return create_engine(conn_string)
+
+    # ========================================
+    # TEMP TABLE MANAGEMENT
+    # ========================================
 
     def create_temp_actors_titles_table(self):
-        """
-        Create temp_actors_titles table from temp_netflix_titles data
-        """
-        # Start tracking
-        run_id = self.start_processing_run("temp_actors_titles", "Creating temp_actors_titles table")
+        """Create temp_actors_titles table from temp_netflix_titles data"""
+        run_id = self.start_processing_run(self.TEMP_TABLE_NAME, "Creating temp_actors_titles table")
         
         try:
-            conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-            engine = create_engine(conn_string)
-
+            engine = self._get_engine()
             print("📊 Loading data from temp_netflix_titles...")
             
-            # Load data and split actors
-            with engine.connect() as conn:
-                # Drop existing temp table
-                conn.execute(text("DROP TABLE IF EXISTS public.temp_actors_titles"))
-                
-                # Create temp table with processed flag
-                create_table_sql = '''
-                CREATE TABLE public.temp_actors_titles (
-                    id SERIAL PRIMARY KEY,
-                    show_id VARCHAR(20) NOT NULL,
-                    actor_name VARCHAR(255) NOT NULL,
-                    processed BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                '''
-                conn.execute(text(create_table_sql))
-                conn.commit()
-                
-                print("✅ Created temp_actors_titles table")
-
-            # Load data from temp_netflix_titles
-            df = pd.read_sql(
-                '''SELECT show_id, "cast" 
-                   FROM public.temp_netflix_titles 
-                   WHERE "cast" IS NOT NULL 
-                   AND "cast" != '' 
-                   AND TRIM("cast") != ''
-                   AND "cast" != 'unknown'
-                   ORDER BY show_id''',
-                con=engine
-            )
+            self._create_empty_temp_table(engine)
+            actor_records = self._extract_actor_records(engine)
             
-            if df.empty:
-                print("⚠️ No actor data found in temp_netflix_titles")
-                self.complete_processing_run()
-                return
-
-            # Split actors and create records
-            actor_records = []
-            for _, row in df.iterrows():
-                show_id = row['show_id']
-                cast_list = str(row['cast']).split(',')
-                
-                for actor in cast_list:
-                    actor = actor.strip()
-                    if actor and actor.lower() != 'unknown':
-                        actor_records.append({
-                            'show_id': show_id,
-                            'actor_name': actor,
-                            'processed': False
-                        })
-
             if actor_records:
-                # Insert into temp table
-                temp_df = pd.DataFrame(actor_records)
-                temp_df.to_sql(
-                    'temp_actors_titles',
-                    con=engine,
-                    schema='public',
-                    if_exists='append',
-                    index=False
-                )
-                print(f"✅ Created {len(actor_records)} actors-titles relationship records")
+                self._insert_actor_records(engine, actor_records)
+                print(f"✅ Created {len(actor_records)} actor-title relationship records")
             else:
                 print("⚠️ No valid actor data found")
 
-            # Complete tracking
             self.complete_processing_run()
             
         except Exception as e:
             self.fail_processing_run(str(e))
             print(f"❌ Error creating temp_actors_titles table: {e}")
             raise
+
+    def _create_empty_temp_table(self, engine):
+        """Create empty temp_actors_titles table structure"""
+        with engine.connect() as conn:
+            # Drop existing temp table
+            conn.execute(text(f"DROP TABLE IF EXISTS public.{self.TEMP_TABLE_NAME}"))
+            
+            # Create temp table with processed flag
+            create_table_sql = f'''
+            CREATE TABLE public.{self.TEMP_TABLE_NAME} (
+                id SERIAL PRIMARY KEY,
+                show_id VARCHAR(20) NOT NULL,
+                actor_name VARCHAR(255) NOT NULL,
+                processed BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            '''
+            conn.execute(text(create_table_sql))
+            conn.commit()
+            
+        print(f"✅ Created {self.TEMP_TABLE_NAME} table")
+
+    def _extract_actor_records(self, engine):
+        """Extract and split actor records from temp_netflix_titles"""
+        # Load data from temp_netflix_titles
+        df = pd.read_sql(
+            '''SELECT show_id, "cast" 
+               FROM public.temp_netflix_titles 
+               WHERE "cast" IS NOT NULL 
+               AND "cast" != '' 
+               AND TRIM("cast") != ''
+               AND "cast" != 'unknown'
+               ORDER BY show_id''',
+            con=engine
+        )
+        
+        if df.empty:
+            print("⚠️ No actor data found in temp_netflix_titles")
+            return []
+
+        # Split actors and create records
+        actor_records = []
+        for _, row in df.iterrows():
+            show_id = row['show_id']
+            cast_list = str(row['cast']).split(',')
+            
+            for actor in cast_list:
+                actor = actor.strip()
+                if actor and actor.lower() != 'unknown':
+                    actor_records.append({
+                        'show_id': show_id,
+                        'actor_name': actor,
+                        'processed': False
+                    })
+        
+        return actor_records
+
+    def _insert_actor_records(self, engine, actor_records):
+        """Insert actor records into temp table"""
+        temp_df = pd.DataFrame(actor_records)
+        temp_df.to_sql(
+            self.TEMP_TABLE_NAME,
+            con=engine,
+            schema='public',
+            if_exists='append',
+            index=False
+        )
 
     def check_processing_status(self):
         """
@@ -274,6 +299,7 @@ class ActorsTitlesController(BaseTrackingController):
     def _process_batch(self, engine, batch_df):
         """
         Process a batch of actors-titles relationships
+        Each record is processed in its own transaction to avoid cascade failures
         """
         batch_processed = 0
         batch_created = 0
@@ -285,64 +311,71 @@ class ActorsTitlesController(BaseTrackingController):
             show_id = row['show_id']
             actor_name = row['actor_name'].strip()
             
-            # Use individual transaction for each record
-            with engine.connect() as conn:
-                trans = conn.begin()
-                try:
-                    # Find actor_id using cache
-                    actor_id = self._find_actor_id(actor_name)
-                    if not actor_id:
-                        print(f"   ⚠️ Actor not found in people table: {actor_name}")
-                        self._mark_as_processed_in_trans(conn, record_id)
-                        trans.commit()
-                        batch_processed += 1
-                        batch_skipped += 1
-                        continue
-                    
-                    # Find title_id using cache
-                    title_id = self._title_cache.get(show_id)
-                    if not title_id:
-                        print(f"   ⚠️ Title not found for show_id: {show_id}")
-                        self._mark_as_processed_in_trans(conn, record_id)
-                        trans.commit()
-                        batch_processed += 1
-                        batch_skipped += 1
-                        continue
-                    
-                    # Check if relationship already exists
-                    existing = self._check_existing_relationship(conn, actor_id, title_id)
-                    if existing:
-                        batch_skipped += 1
-                    else:
-                        # Create new relationship
-                        self._create_relationship(conn, actor_id, title_id)
-                        batch_created += 1
-                    
-                    # Mark as processed
-                    self._mark_as_processed_in_trans(conn, record_id)
-                    batch_processed += 1
-                    
-                    # Commit the transaction
-                    trans.commit()
-                    
-                except Exception as e:
-                    print(f"   ❌ Error processing actor {actor_name}: {e}")
-                    trans.rollback()
-                    
-                    # Try to mark as processed in a separate transaction to avoid losing progress
-                    try:
-                        with engine.connect() as conn2:
-                            trans2 = conn2.begin()
-                            self._mark_as_processed_in_trans(conn2, record_id)
-                            trans2.commit()
-                            batch_processed += 1
-                            batch_skipped += 1
-                    except:
-                        # If we can't even mark as processed, skip this record
-                        print(f"   ❌ Failed to mark record {record_id} as processed")
-                        pass
+            processed, created, skipped = self._process_single_record(
+                engine, record_id, show_id, actor_name
+            )
+            
+            batch_processed += processed
+            batch_created += created
+            batch_skipped += skipped
         
         return batch_processed, batch_created, batch_skipped
+
+    def _process_single_record(self, engine, record_id, show_id, actor_name):
+        """Process a single actor-title relationship record"""
+        with engine.connect() as conn:
+            trans = conn.begin()
+            try:
+                # Find actor_id using cache or create if missing
+                actor_id = self._find_actor_id(actor_name)
+                if not actor_id:
+                    print(f"   ⚠️ Could not find/create actor: {actor_name}")
+                    self._mark_as_processed_in_trans(conn, record_id)
+                    trans.commit()
+                    return 1, 0, 1  # processed, created, skipped
+                
+                # Find title_id using cache
+                title_id = self._title_cache.get(show_id)
+                if not title_id:
+                    print(f"   ⚠️ Title not found for show_id: {show_id}")
+                    self._mark_as_processed_in_trans(conn, record_id)
+                    trans.commit()
+                    return 1, 0, 1  # processed, created, skipped
+                
+                # Check if relationship already exists
+                if self._check_existing_relationship(conn, actor_id, title_id):
+                    created = 0
+                    skipped = 1
+                else:
+                    # Create new relationship
+                    self._create_relationship(conn, actor_id, title_id)
+                    created = 1
+                    skipped = 0
+                
+                # Mark as processed and commit
+                self._mark_as_processed_in_trans(conn, record_id)
+                trans.commit()
+                
+                return 1, created, skipped  # processed, created, skipped
+                
+            except Exception as e:
+                print(f"   ❌ Error processing actor {actor_name}: {e}")
+                trans.rollback()
+                
+                # Try to mark as processed in a separate transaction
+                return self._handle_failed_record(engine, record_id)
+
+    def _handle_failed_record(self, engine, record_id):
+        """Handle a failed record by trying to mark it as processed"""
+        try:
+            with engine.connect() as conn2:
+                trans2 = conn2.begin()
+                self._mark_as_processed_in_trans(conn2, record_id)
+                trans2.commit()
+                return 1, 0, 1  # processed, created, skipped
+        except:
+            print(f"   ❌ Failed to mark record {record_id} as processed")
+            return 0, 0, 0  # nothing processed
 
     def _check_existing_relationship(self, conn, actor_id, title_id):
         """
@@ -413,13 +446,6 @@ class ActorsTitlesController(BaseTrackingController):
             first_name = parts[0] if parts else "unknown"
             last_name = " ".join(parts[1:]) if len(parts) > 1 else None
             
-            # Create person record
-            person_data = {
-                "first_name": first_name,
-                "middle_name": None,
-                "last_name": last_name
-            }
-            
             print(f"   ➕ Creating missing actor: {actor_name}")
             
             # Check if person already exists (by name)
@@ -429,6 +455,11 @@ class ActorsTitlesController(BaseTrackingController):
                 print(f"   ✅ Found existing person with ID: {person_id}")
             else:
                 # Create new person
+                person_data = {
+                    "first_name": first_name,
+                    "middle_name": None,
+                    "last_name": last_name
+                }
                 new_person = self.people_repo.create(person_data)
                 if not new_person:
                     print(f"   ❌ Failed to create person for: {actor_name}")
@@ -450,21 +481,31 @@ class ActorsTitlesController(BaseTrackingController):
                 actor_id = new_actor["actor_id"]
                 print(f"   ✅ Created new actor with ID: {actor_id}")
             
-            # Update cache
-            actor_name_lower = actor_name.lower().strip()
-            self._people_cache[actor_name_lower] = actor_id
-            if len(parts) > 0:
-                self._people_cache[parts[0].lower()] = actor_id
+            # Update cache for future lookups
+            self._update_cache_for_actor(actor_name, actor_id)
             
             return actor_id
             
         except Exception as e:
             print(f"   ❌ Error creating actor for {actor_name}: {e}")
-            # Try to rollback any pending transactions
+            self._rollback_repositories()
+            return None
+
+    def _update_cache_for_actor(self, actor_name, actor_id):
+        """Update cache with new actor information"""
+        actor_name_lower = actor_name.lower().strip()
+        self._people_cache[actor_name_lower] = actor_id
+        
+        # Also cache by first name for flexible matching
+        parts = actor_name_lower.split()
+        if parts:
+            self._people_cache[parts[0]] = actor_id
+
+    def _rollback_repositories(self):
+        """Safely rollback any pending transactions"""
+        for repo in [self.people_repo, self.actors_repo]:
             try:
-                self.people_repo.db.rollback()
-                self.actors_repo.db.rollback()
+                repo.db.rollback()
             except:
                 pass
-            return None
 
