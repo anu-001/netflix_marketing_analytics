@@ -33,20 +33,20 @@ def main():
     tracker.print_processing_dashboard()
 
     # Define the path to the CSV file
-    csv_path = "input/netflix_titles.csv"
+    # csv_path = "input/cleaned_netflix_titles.csv"
 
-    # Save CSV file in the database
-    print("Saving CSV to database...")
+    # # Save CSV file in the database
+    # print("Saving CSV to database...")
 
-    # Initialize the CSV handler
-    netflix_csv = CSVController(csv_path)
-    netflix_csv.save_csv_to_database(
-        table_name="temp_netflix_titles",
-        schema="public"
-    )
+    # # Initialize the CSV handler
+    # netflix_csv = CSVController(csv_path)
+    # netflix_csv.save_csv_to_database(
+    #     table_name="temp_netflix_titles",
+    #     schema="public"
+    # )
 
     # Set missing directors
-    print("Setting missing directors...")
+    #print("Setting missing directors...")
     # Initialize the temporary Netflix titles controller
     # temp_netflix_titles_controller = TempNetflixTitlesController()
     # temp_netflix_titles_controller.set_missing_directors()
