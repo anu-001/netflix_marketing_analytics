@@ -116,12 +116,27 @@ def main():
     print("="*60)
     
     # Use new titles controller with temp_titles and processed flag
-    print("🔄 Creating temp_titles table...")
-    titles_controller = TitlesController()
-    titles_controller.create_temp_titles_table()
+    # print("🔄 Creating temp_titles table...")
+    # titles_controller = TitlesController()
+    # titles_controller.create_temp_titles_table()
     
-    print("🔄 Populating the titles table from temp_titles...")
-    titles_controller.populate_titles_table_from_temp()
+    # print("🔄 Populating the titles table from temp_titles...")
+    # titles_controller.populate_titles_table_from_temp()
+
+    # STEP 3.5: PROCESS CATEGORIES-TITLES RELATIONSHIPS
+    print("\n" + "="*60)
+    print("🏷️ STEP 3.5: PROCESSING CATEGORIES-TITLES RELATIONSHIPS")
+    print("="*60)
+    
+    print("🔄 Creating temp_categories_titles table...")
+    categories_titles_controller = CategoriesTitlesController()
+    categories_titles_controller.create_temp_categories_titles_table()
+    
+    print("📊 Checking processing status...")
+    categories_titles_controller.check_processing_status()
+    
+    print("🔄 Populating the categories_titles table from temp_categories_titles...")
+    categories_titles_controller.populate_categories_titles_table_from_temp()
 
     # STEP 4: PROCESS ACTORS TABLE
     # print("\n" + "="*60)
@@ -161,24 +176,20 @@ def main():
     # print("🔄 Populating the director_titles table from temp_director_titles...")
     # director_titles_controller.populate_director_titles_table_from_temp()
 
-    # # STEP 5: PROCESS CATEGORY/COUNTRY-TITLE JUNCTION TABLES
-    # print("\n" + "="*60)
-    # print("🌍 STEP 5: PROCESSING CATEGORY/COUNTRY-TITLE JUNCTION TABLES")
-    # print("="*60)
+    # STEP 4: PROCESS COUNTRIES-TITLES RELATIONSHIPS
+    print("\n" + "="*60)
+    print("🌍 STEP 4: PROCESSING COUNTRIES-TITLES RELATIONSHIPS")
+    print("="*60)
     
-    # print("🔄 Creating temp_categories_titles table...")
-    # categories_titles_controller = CategoriesTitlesController()
-    # categories_titles_controller.create_temp_categories_titles_table()
+    print("🔄 Creating temp_countries_titles table...")
+    countries_titles_controller = CountriesTitlesController()
+    countries_titles_controller.create_temp_countries_titles_table()
     
-    # print("🔄 Populating the categories_titles table from temp_categories_titles...")
-    # categories_titles_controller.populate_categories_titles_table_from_temp()
-
-    # print("🔄 Creating temp_countries_titles table...")
-    # countries_titles_controller = CountriesTitlesController()
-    # countries_titles_controller.create_temp_countries_titles_table()
+    print("📊 Checking processing status...")
+    countries_titles_controller.check_processing_status()
     
-    # print("🔄 Populating the countries_titles table from temp_countries_titles...")
-    # countries_titles_controller.populate_countries_titles_table_from_temp()
+    print("🔄 Populating the countries_titles table from temp_countries_titles...")
+    countries_titles_controller.populate_countries_titles_table_from_temp()
 
     # # Final status check
     print("\n" + "=" * 80)
