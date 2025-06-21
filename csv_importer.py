@@ -4,7 +4,7 @@ from controllers.people_controller import PeopleController
 from controllers.ratings_controller import RatingsController
 from controllers.actors_controller import ActorsController
 from controllers.directors_controller import DirectorsController
-from controllers.actor_titles_controller import ActorTitlesController
+from controllers.actors_titles_controller import ActorsTitlesController
 from controllers.director_titles_controller import DirectorTitlesController
 from controllers.title_types_controller import TitleTypesController
 from controllers.categories_controller import CategoriesController
@@ -13,8 +13,6 @@ from controllers.categories_titles_controller import CategoriesTitlesController
 from controllers.countries_titles_controller import CountriesTitlesController
 from controllers.titles_controller_new import TitlesController
 from controllers.base_tracking_controller import BaseTrackingController
-from sqlalchemy import create_engine, text
-from config import DB_CONFIG
 from sqlalchemy import create_engine, text
 from config import DB_CONFIG
 
@@ -33,7 +31,7 @@ def main():
     tracker.print_processing_dashboard()
 
     # Define the path to the CSV file
-    csv_path = "input/netflix_titles.csv"
+    csv_path = "input/cleaned_netflix_titles.csv"
 
     # Save CSV file in the database
     print("Saving CSV to database...")
@@ -46,7 +44,7 @@ def main():
     )
 
     # Set missing directors
-    print("Setting missing directors...")
+    #print("Setting missing directors...")
     # Initialize the temporary Netflix titles controller
     # temp_netflix_titles_controller = TempNetflixTitlesController()
     # temp_netflix_titles_controller.set_missing_directors()
@@ -154,29 +152,23 @@ def main():
     # print("🔄 Populating the actors table from temp_actors...")
     # actors_controller.populate_actors_table_from_temp()  # Process all unprocessed records
 
-    # print("🔄 Creating temp_directors table...")
-    # directors_controller = DirectorsController()
-    # directors_controller.create_temp_directors_table()
-    
-    # print("🔄 Populating the directors table from temp_directors...")
-    # directors_controller.populate_directors_table_from_temp()
 
-    # # ERD compliant naming
-    # print("🔄 Creating temp_actor_titles table...")
-    # actor_titles_controller = ActorTitlesController()
-    # actor_titles_controller.create_temp_actor_titles_table()
+    # STEP 4.5: PROCESS ACTORS-TITLES RELATIONSHIPS
+    print("\n" + "="*60)
+    print("🎭 STEP 4.5: PROCESSING ACTORS-TITLES RELATIONSHIPS")
+    print("="*60)
     
-    # print("🔄 Populating the actor_titles table from temp_actor_titles...")
-    # actor_titles_controller.populate_actor_titles_table_from_temp()
-
-    # print("🔄 Creating temp_director_titles table...")
-    # director_titles_controller = DirectorTitlesController()
-    # director_titles_controller.create_temp_director_titles_table()
+    print("🔄 Creating temp_actors_titles table...")
+    actors_titles_controller = ActorsTitlesController()
+    actors_titles_controller.create_temp_actors_titles_table()
     
-    # print("🔄 Populating the director_titles table from temp_director_titles...")
-    # director_titles_controller.populate_director_titles_table_from_temp()
+    print("📊 Checking processing status...")
+    actors_titles_controller.check_processing_status()
+    
+    print("🔄 Populating the actors_titles table from temp_actors_titles...")
+    actors_titles_controller.populate_actors_titles_table_from_temp()
 
-    # STEP 4: PROCESS COUNTRIES-TITLES RELATIONSHIPS
+    # STEP 5: PROCESS COUNTRIES-TITLES RELATIONSHIPS
     print("\n" + "="*60)
     print("🌍 STEP 4: PROCESSING COUNTRIES-TITLES RELATIONSHIPS")
     print("="*60)
@@ -216,7 +208,7 @@ def main():
     print("   ✅ title_countries (title_id, country_id)")
     print("   ")
     print("   JUNCTION TABLES - ERD Compliant Naming (4):")
-    print("   ✅ actor_titles (person_id, title_id)")
+    print("   ✅ actors_titles (actor_id, title_id)")
     print("   ✅ director_titles (person_id, title_id)")
     print("   ✅ categories_titles (category_id, title_id)")
     print("   ✅ countries_titles (country_id, title_id)")
@@ -233,7 +225,7 @@ def main():
     print("   🔧 ERD Corrections Made:")
     print("   ✅ title_categories → categories_titles")
     print("   ✅ title_countries → countries_titles")
-    print("   ✅ actors → actor_titles (also available)")
+    print("   ✅ actors → actors_titles (ERD compliant)")
     print("   ✅ directors → director_titles (also available)")
     print("="*80)
 
