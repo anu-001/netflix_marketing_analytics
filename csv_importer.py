@@ -4,7 +4,7 @@ from controllers.people_controller import PeopleController
 from controllers.ratings_controller import RatingsController
 from controllers.actors_controller import ActorsController
 from controllers.directors_controller import DirectorsController
-from controllers.actor_titles_controller import ActorTitlesController
+from controllers.actors_titles_controller import ActorsTitlesController
 from controllers.director_titles_controller import DirectorTitlesController
 from controllers.title_types_controller import TitleTypesController
 from controllers.categories_controller import CategoriesController
@@ -13,8 +13,6 @@ from controllers.categories_titles_controller import CategoriesTitlesController
 from controllers.countries_titles_controller import CountriesTitlesController
 from controllers.titles_controller_new import TitlesController
 from controllers.base_tracking_controller import BaseTrackingController
-from sqlalchemy import create_engine, text
-from config import DB_CONFIG
 from sqlalchemy import create_engine, text
 from config import DB_CONFIG
 
@@ -176,6 +174,21 @@ def main():
     # print("🔄 Populating the director_titles table from temp_director_titles...")
     # director_titles_controller.populate_director_titles_table_from_temp()
 
+    # STEP 4.5: PROCESS ACTORS-TITLES RELATIONSHIPS
+    print("\n" + "="*60)
+    print("🎭 STEP 4.5: PROCESSING ACTORS-TITLES RELATIONSHIPS")
+    print("="*60)
+    
+    print("🔄 Creating temp_actors_titles table...")
+    actors_titles_controller = ActorsTitlesController()
+    actors_titles_controller.create_temp_actors_titles_table()
+    
+    print("📊 Checking processing status...")
+    actors_titles_controller.check_processing_status()
+    
+    print("🔄 Populating the actors_titles table from temp_actors_titles...")
+    actors_titles_controller.populate_actors_titles_table_from_temp()
+
     # STEP 4: PROCESS COUNTRIES-TITLES RELATIONSHIPS
     print("\n" + "="*60)
     print("🌍 STEP 4: PROCESSING COUNTRIES-TITLES RELATIONSHIPS")
@@ -190,6 +203,21 @@ def main():
     
     print("🔄 Populating the countries_titles table from temp_countries_titles...")
     countries_titles_controller.populate_countries_titles_table_from_temp()
+
+    # STEP 5: PROCESS ACTORS-TITLES RELATIONSHIPS
+    print("\n" + "="*60)
+    print("🎭 STEP 5: PROCESSING ACTORS-TITLES RELATIONSHIPS")
+    print("="*60)
+    
+    print("🔄 Creating temp_actors_titles table...")
+    actors_titles_controller = ActorsTitlesController()
+    actors_titles_controller.create_temp_actors_titles_table()
+    
+    print("📊 Checking processing status...")
+    actors_titles_controller.check_processing_status()
+    
+    print("🔄 Populating the actors_titles table from temp_actors_titles...")
+    actors_titles_controller.populate_actors_titles_table_from_temp()
 
     # # Final status check
     print("\n" + "=" * 80)
