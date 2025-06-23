@@ -8,177 +8,347 @@ from config import DB_CONFIG
 from repositories.temp_netflix_titles_repository import TempNetflixTitlesRepository
 from repositories.people_repository import PeopleRepository
 from repositories.directors_repository import DirectorsRepository
+from repositories.director_titles_repository import DirectorTitlesRepository
 from repositories.titles_repository import TitlesRepository
 from controllers.common_controller import CommonController
 
 
 class DirectorsController:
     """
-    Controller for managing directors
+    Controller for managing directors with name parsing and temp_director table processing
     """
 
     def __init__(self):
-        pass
+        self.conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+        self.engine = create_engine(self.conn_string)
 
-    def create_temp_directors_table(self):
+    def create_temp_director_table(self):
         """
-        Create a temporary directors table from the temporary Netflix titles repository.
+        Part 1: Parse Director Names and Populate temp_director Table
+        
+        Read director column from temp_netflix_titles, parse names by word count,
+        check/create people records, and populate temp_director table.
         """
+        print("🎬 Starting director name parsing and temp_director table creation...")
+        
+        # Get all records from temp_netflix_titles
         temp_netflix_titles_repo = TempNetflixTitlesRepository()
         records = temp_netflix_titles_repo.get_all()
-
+        
         directors_list = []
+        processed_count = 0
         
         for record in records:
-            # Check if the director field exists and is not None
-            if record["director"] and record["director"] != "unknown":
-                # Split the director string by commas
-                raw_director_names = record["director"].split(",")
+            show_id = record.get("show_id")
+            director_column = record.get("director")
+            
+            # Skip if no director data
+            if not director_column or director_column.strip() in ["", "unknown", "Unknown"]:
+                continue
                 
-                # Clean up each director name and associate with show_id
-                for name in raw_director_names:
-                    clean_name = name.strip()
-                    if clean_name:  # Only add non-empty names
-                        directors_list.append({
-                            "director_name": clean_name,
-                            "show_id": record["show_id"],
-                            "processed": False
-                        })
-
-        print(f"\nFound {len(directors_list)} director-title relationships in the temporary Netflix titles repository.")
-
-        # Create Pandas DataFrame
-        directors_df = pd.DataFrame(directors_list)
-
-        # Save the DataFrame to a PostgreSQL database table
-        table_name = "temp_directors"
-        schema = "public"
-        conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-        engine = create_engine(conn_string)
-        directors_df.to_sql(name=table_name, con=engine.connect(), schema=schema, if_exists="replace", index=False)
-        print(f"Successfully saved data to table '{table_name}' in schema '{schema}'.")
-
-    def normalize_name(self, name):
-        """
-        Normalize name for comparison (same as in PeopleController)
-        """
-        if not name:
-            return ""
+            # Split director string by commas to extract individual names
+            raw_director_names = director_column.split(",")
+            
+            for raw_name in raw_director_names:
+                # Trim leading and trailing whitespace
+                clean_name = raw_name.strip()
+                if not clean_name:
+                    continue
+                    
+                # Parse name by word count
+                parsed_names = self.parse_director_name(clean_name)
+                if not parsed_names:
+                    continue
+                    
+                first_name = parsed_names["first_name"]
+                middle_name = parsed_names["middle_name"]
+                last_name = parsed_names["last_name"]
+                
+                # Check if matching person exists in people table
+                director_id = self.get_or_create_person(first_name, middle_name, last_name)
+                
+                if director_id:
+                    directors_list.append({
+                        "first_name": first_name,
+                        "middle_name": middle_name,
+                        "last_name": last_name,
+                        "director_id": director_id,
+                        "show_id": show_id,
+                        "processed": False
+                    })
+                    processed_count += 1
+                    
+                    if processed_count % 100 == 0:
+                        print(f"   Processed {processed_count} director entries...")
         
-        # Basic cleanup
-        name = re.sub(r'[^\w\s]', '', name)
-        name = re.sub(r'\s+', ' ', name)
-        name = name.strip().lower()
+        print(f"✅ Parsed {len(directors_list)} director entries from {len(records)} titles")
         
-        # Remove accents
-        name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
-        return name
+        # Create temp_director table
+        if directors_list:
+            directors_df = pd.DataFrame(directors_list)
+            
+            # Save to PostgreSQL temp_director table
+            table_name = "temp_director"
+            schema = "public"
+            
+            directors_df.to_sql(
+                name=table_name, 
+                con=self.engine.connect(), 
+                schema=schema, 
+                if_exists="replace", 
+                index=False
+            )
+            print(f"✅ Successfully created '{table_name}' table with {len(directors_list)} records")
+        else:
+            print("⚠️ No director data found to process")
+
+    def parse_director_name(self, full_name):
+        """
+        Parse director name by word count as specified in requirements:
+        - 3 words: first_name, middle_name, last_name
+        - 2 words: first_name, last_name (middle_name = NULL)
+        - 1 word: first_name (middle_name = NULL, last_name = NULL)
+        """
+        if not full_name or not full_name.strip():
+            return None
+            
+        # Clean and split the name
+        words = full_name.strip().split()
+        word_count = len(words)
+        
+        if word_count == 3:
+            # Three words: first_name, middle_name, last_name
+            # For "Jacinth Tan Yi Ting" -> first=Jacinth, middle=Tan, last=Yi Ting
+            return {
+                "first_name": words[0],
+                "middle_name": words[1],
+                "last_name": " ".join(words[2:]) if len(words) > 2 else words[2]
+            }
+        elif word_count == 2:
+            # Two words: first_name, last_name; middle_name = NULL
+            return {
+                "first_name": words[0],
+                "middle_name": None,
+                "last_name": words[1]
+            }
+        elif word_count == 1:
+            # One word: first_name; middle_name = NULL, last_name = NULL
+            return {
+                "first_name": words[0],
+                "middle_name": None,
+                "last_name": None
+            }
+        else:
+            # More than 3 words: treat as first_name, middle_name, rest as last_name
+            return {
+                "first_name": words[0],
+                "middle_name": words[1] if len(words) > 1 else None,
+                "last_name": " ".join(words[2:]) if len(words) > 2 else None
+            }
+    
+    def get_or_create_person(self, first_name, middle_name, last_name):
+        """
+        Check if matching person exists in people table, create if not found.
+        Returns person_id (BIGINT) or None if error.
+        """
+        people_repo = PeopleRepository()
+        
+        # Check for exact match using first_name, middle_name, last_name
+        existing_person = people_repo.get_by_name(first_name, middle_name, last_name)
+        
+        if existing_person:
+            return existing_person[0]["person_id"]
+        
+        # No match found, create new person record
+        try:
+            person_data = {
+                "first_name": first_name,
+                "middle_name": middle_name,
+                "last_name": last_name
+            }
+            
+            created_person = people_repo.create(person_data)
+            if created_person:
+                print(f"   ✅ Created new person: {first_name} {middle_name or ''} {last_name or ''}".strip())
+                return created_person["person_id"]
+        except Exception as e:
+            print(f"   ❌ Error creating person {first_name} {middle_name or ''} {last_name or ''}: {e}")
+            
+        return None
 
     def populate_directors_table_from_temp(self):
         """
-        Fill in the directors table using data from temp_directors where processed = FALSE.
+        Part 2: Transfer Unique Directors to directors Table
+        
+        Select all distinct director_id values from temp_director where processed = FALSE,
+        insert unique ones into directors table (which has structure: director_id BIGINT NOT NULL),
+        then mark all matching rows as processed.
         """
-        conn_string = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
-        engine = create_engine(conn_string)
-
-        # Load unprocessed records
-        result_df = pd.read_sql(
-            'SELECT director_name, show_id FROM public.temp_directors WHERE processed = FALSE ORDER BY director_name',
-            con=engine
-        )
-        temp_directors = result_df.to_dict(orient="records")
-
-        for record in temp_directors[:100]:  # Process in batches
-            print("\n", record)
+        print("🎬 Starting transfer from temp_director to directors table...")
+        
+        try:
+            # Get distinct director_id values from temp_director where processed = FALSE
+            with self.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT DISTINCT director_id 
+                        FROM public.temp_director 
+                        WHERE processed = FALSE 
+                        ORDER BY director_id
+                    """)
+                )
+                distinct_director_ids = [row.director_id for row in result.fetchall()]
             
-            raw_name = record["director_name"]
-            show_id = record["show_id"]
-            
-            # Clean name for processing
-            full_name = self.normalize_name(raw_name)
-            print(f"🔍 Processing director: {full_name} for show: {show_id}")
-
-            # Parse with Gemini
-            common_controller = CommonController()
-            parsed = common_controller.parse_full_name(full_name)
-
-            # Skip if parsing failed
-            if not isinstance(parsed, dict):
-                print(f"⚠️ Skipping '{full_name}' — unexpected format: {type(parsed).__name__}")
-                self.mark_as_processed(engine, raw_name, show_id)
-                continue
-
-            first_name = parsed.get("first_name")
-            middle_name = parsed.get("middle_name")
-            last_name = parsed.get("last_name")
-
-            first_name = first_name if first_name != "unknown" else None
-            middle_name = middle_name if middle_name != "unknown" else None
-            last_name = last_name if last_name != "unknown" else None
-
-            if first_name is None:
-                print(f"⚠️ Fallback — using full name as first_name for: '{full_name}'")
-                first_name = full_name
-                middle_name = None
-                last_name = None
-
-            if not first_name or first_name.strip() == "":
-                print(f"⚠️ Skipping — no valid first name: '{full_name}'")
-                self.mark_as_processed(engine, raw_name, show_id)
-                continue
-
-            # Find the person in the people table
-            people_repo = PeopleRepository()
-            existing_person = people_repo.get_by_name(first_name, middle_name, last_name)
-
-            if not existing_person:
-                print(f"⚠️ Person not found in people table: {first_name} {middle_name} {last_name}")
-                self.mark_as_processed(engine, raw_name, show_id)
-                continue
-
-            person_id = existing_person[0]["person_id"]
-            print(f"✅ Found person_id: {person_id}")
-
-            # Get the actual title_id from the titles table using show_id
-            titles_repo = TitlesRepository()
-            existing_title = titles_repo.get_by_show_id(show_id)
-            
-            if not existing_title:
-                print(f"⚠️ Title not found in titles table for show_id: {show_id}")
-                self.mark_as_processed(engine, raw_name, show_id)
-                continue
+            if not distinct_director_ids:
+                print("✅ No unprocessed director IDs found in temp_director table")
+                return
                 
-            title_id = existing_title[0]["title_id"]
-            print(f"✅ Found title_id: {title_id}")
+            print(f"📋 Found {len(distinct_director_ids)} distinct unprocessed director IDs")
+            
+            inserted_count = 0
+            existing_count = 0
+            error_count = 0
+            successfully_processed_director_ids = []
+            
+            for director_id in distinct_director_ids:
+                try:
+                    # Check if this director_id already exists in directors table
+                    with self.engine.connect() as conn:
+                        existing_check = conn.execute(
+                            text("SELECT director_id FROM public.directors WHERE director_id = :director_id"),
+                            {"director_id": director_id}
+                        )
+                        existing_director = existing_check.fetchone()
+                    
+                    if not existing_director:
+                        # Insert new director into directors table
+                        with self.engine.connect() as conn:
+                            conn.execute(
+                                text("INSERT INTO public.directors (director_id) VALUES (:director_id)"),
+                                {"director_id": director_id}
+                            )
+                            conn.commit()
+                            inserted_count += 1
+                            successfully_processed_director_ids.append(director_id)
+                            
+                            if inserted_count % 50 == 0:
+                                print(f"   ✅ Inserted {inserted_count} new directors...")
+                    else:
+                        existing_count += 1
+                        successfully_processed_director_ids.append(director_id)  # Still mark as processed
+                        if existing_count % 50 == 0:
+                            print(f"   🟡 {existing_count} directors already exist...")
+                    
+                except Exception as e:
+                    error_count += 1
+                    print(f"   ❌ Error processing director_id {director_id}: {e}")
+                    # Don't add to successfully_processed_director_ids if there was an error
+            
+            # Mark all rows with successfully processed director_ids as processed
+            if successfully_processed_director_ids:
+                print("🔄 Marking all matching rows as processed...")
+                processed_count = 0
+                
+                try:
+                    with self.engine.connect() as conn:
+                        # Build the SQL for bulk update
+                        director_ids_str = ','.join(map(str, successfully_processed_director_ids))
+                        
+                        update_result = conn.execute(
+                            text(f"""
+                                UPDATE public.temp_director 
+                                SET processed = TRUE 
+                                WHERE director_id IN ({director_ids_str}) AND processed = FALSE
+                            """)
+                        )
+                        processed_count = update_result.rowcount
+                        conn.commit()
+                        
+                except Exception as e:
+                    print(f"   ❌ Error marking directors as processed: {e}")
+                    # Try individual updates as fallback
+                    for director_id in successfully_processed_director_ids:
+                        try:
+                            with self.engine.connect() as conn:
+                                result = conn.execute(
+                                    text("""
+                                        UPDATE public.temp_director 
+                                        SET processed = TRUE 
+                                        WHERE director_id = :director_id AND processed = FALSE
+                                    """),
+                                    {"director_id": director_id}
+                                )
+                                processed_count += result.rowcount
+                                conn.commit()
+                        except Exception as inner_e:
+                            print(f"   ❌ Error marking director_id {director_id} as processed: {inner_e}")
+            
+            print(f"✅ Transfer complete:")
+            print(f"   • {inserted_count} new directors inserted")
+            print(f"   • {existing_count} directors already existed") 
+            print(f"   • {processed_count} temp_director rows marked as processed")
+            print(f"   • {error_count} errors encountered")
+            
+        except Exception as e:
+            print(f"❌ Error in populate_directors_table_from_temp: {e}")
+            raise
 
-            # Check if director-title relationship already exists
-            directors_repo = DirectorsRepository()
-            existing_director = directors_repo.get_by_person_and_title(person_id, title_id)
-
-            if not existing_director:
-                # Create new director relationship
-                created = directors_repo.create({
-                    "person_id": person_id,
-                    "title_id": title_id
-                })
-                print(f"✅ Created director relationship: {created}")
-            else:
-                print(f"🟡 Director relationship already exists: {existing_director[0]}")
-
-            self.mark_as_processed(engine, raw_name, show_id)
-
-    def mark_as_processed(self, engine, director_name, show_id):
+    def mark_temp_director_as_processed(self, director_id, show_id=None):
         """
-        Mark director as processed in temp_directors table
+        Mark director record as processed in temp_director table
+        If show_id is None, mark all records for this director_id
         """
         try:
-            with engine.connect() as conn:
-                conn.execute(
-                    text("UPDATE public.temp_directors SET processed = TRUE WHERE director_name = :director_name AND show_id = :show_id"),
-                    {"director_name": director_name, "show_id": show_id}
-                )
+            with self.engine.connect() as conn:
+                if show_id is not None:
+                    conn.execute(
+                        text("""
+                            UPDATE public.temp_director 
+                            SET processed = TRUE 
+                            WHERE director_id = :director_id AND show_id = :show_id
+                        """),
+                        {"director_id": director_id, "show_id": show_id}
+                    )
+                else:
+                    conn.execute(
+                        text("""
+                            UPDATE public.temp_director 
+                            SET processed = TRUE 
+                            WHERE director_id = :director_id
+                        """),
+                        {"director_id": director_id}
+                    )
                 conn.commit()
-                print(f"✅ Marked '{director_name}' for show '{show_id}' as processed")
         except Exception as e:
-            print(f"❌ Error marking '{director_name}' as processed: {e}")
+            print(f"❌ Error marking director as processed: {e}")
             raise
+
+    def check_processing_status(self):
+        """
+        Check processing status of temp_director table
+        """
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT 
+                            COUNT(*) as total_records,
+                            COUNT(CASE WHEN processed = TRUE THEN 1 END) as processed_records,
+                            COUNT(CASE WHEN processed = FALSE THEN 1 END) as unprocessed_records
+                        FROM public.temp_director
+                    """)
+                )
+                status = result.fetchone()
+                
+                print(f"📊 temp_director processing status:")
+                print(f"   Total records: {status.total_records}")
+                print(f"   Processed: {status.processed_records}")
+                print(f"   Unprocessed: {status.unprocessed_records}")
+                
+        except Exception as e:
+            print(f"❌ Error checking processing status: {e}")
+
+    # Legacy methods (keeping for backward compatibility)
+    def create_temp_directors_table(self):
+        """Legacy method - redirects to new method"""
+        return self.create_temp_director_table()
