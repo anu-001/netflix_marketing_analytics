@@ -34,14 +34,30 @@ def main():
     csv_path = "input/cleaned_netflix_titles.csv"
 
     # Save CSV file in the database
-    print("Saving CSV to database...")
+    print("Processing and saving CSV to database...")
 
     # Initialize the CSV handler
     netflix_csv = CSVController(csv_path)
-    netflix_csv.save_csv_to_database(
-        table_name="temp_netflix_titles",
-        schema="public"
-    )
+    
+    # First, try to clean the CSV file if needed
+    try:
+        netflix_csv.save_csv_to_database(
+            table_name="temp_netflix_titles",
+            schema="public"
+        )
+    except Exception as e:
+        print(f"❌ Initial CSV processing failed: {e}")
+        print("🔧 Attempting to clean CSV file first...")
+        
+        # Clean the CSV file and try again
+        cleaned_csv_path = netflix_csv.clean_csv_file()
+        
+        # Create a new controller with the cleaned file
+        cleaned_netflix_csv = CSVController(cleaned_csv_path)
+        cleaned_netflix_csv.save_csv_to_database(
+            table_name="temp_netflix_titles",
+            schema="public"
+        )
 
     # Set missing directors
     #print("Setting missing directors...")
@@ -107,11 +123,11 @@ def main():
     # countries_controller.populate_countries_table_from_temp()
 
     # # STEP 3: PROCESS MAIN TITLES TABLE
-    print("\n" + "="*60)
-    #STEP 3: PROCESS MAIN TITLES TABLE
-    print("\n" + "="*60)
-    print("🎬 STEP 3: PROCESSING MAIN TITLES TABLE")
-    print("="*60)
+    # print("\n" + "="*60)
+    # #STEP 3: PROCESS MAIN TITLES TABLE
+    # print("\n" + "="*60)
+    # print("🎬 STEP 3: PROCESSING MAIN TITLES TABLE")
+    # print("="*60)
     
     # Use new titles controller with temp_titles and processed flag
     # print("🔄 Creating temp_titles table...")
@@ -122,19 +138,19 @@ def main():
     # titles_controller.populate_titles_table_from_temp()
 
     # STEP 3.5: PROCESS CATEGORIES-TITLES RELATIONSHIPS
-    print("\n" + "="*60)
-    print("🏷️ STEP 3.5: PROCESSING CATEGORIES-TITLES RELATIONSHIPS")
-    print("="*60)
+    # print("\n" + "="*60)
+    # print("🏷️ STEP 3.5: PROCESSING CATEGORIES-TITLES RELATIONSHIPS")
+    # print("="*60)
     
-    print("🔄 Creating temp_categories_titles table...")
-    categories_titles_controller = CategoriesTitlesController()
-    categories_titles_controller.create_temp_categories_titles_table()
+    # print("🔄 Creating temp_categories_titles table...")
+    # categories_titles_controller = CategoriesTitlesController()
+    # categories_titles_controller.create_temp_categories_titles_table()
     
-    print("📊 Checking processing status...")
-    categories_titles_controller.check_processing_status()
+    # print("📊 Checking processing status...")
+    # categories_titles_controller.check_processing_status()
     
-    print("🔄 Populating the categories_titles table from temp_categories_titles...")
-    categories_titles_controller.populate_categories_titles_table_from_temp()
+    # print("🔄 Populating the categories_titles table from temp_categories_titles...")
+    # categories_titles_controller.populate_categories_titles_table_from_temp()
 
     # STEP 4: PROCESS ACTORS TABLE
     # print("\n" + "="*60)
@@ -158,30 +174,45 @@ def main():
     print("🎭 STEP 4.5: PROCESSING ACTORS-TITLES RELATIONSHIPS")
     print("="*60)
     
-    print("🔄 Creating temp_actors_titles table...")
-    actors_titles_controller = ActorsTitlesController()
-    actors_titles_controller.create_temp_actors_titles_table()
+    # print("🔄 Creating temp_actors_titles table...")
+    # actors_titles_controller = ActorsTitlesController()
+    # actors_titles_controller.create_temp_actors_titles_table()
     
-    print("📊 Checking processing status...")
-    actors_titles_controller.check_processing_status()
+    # print("📊 Checking processing status...")
+    # actors_titles_controller.check_processing_status()
     
-    print("🔄 Populating the actors_titles table from temp_actors_titles...")
-    actors_titles_controller.populate_actors_titles_table_from_temp()
+    # print("🔄 Populating the actors_titles table from temp_actors_titles...")
+    # actors_titles_controller.populate_actors_titles_table_from_temp()
 
-    # STEP 5: PROCESS COUNTRIES-TITLES RELATIONSHIPS
+    # STEP 5: PROCESS DIRECTORS TABLE
     print("\n" + "="*60)
-    print("🌍 STEP 4: PROCESSING COUNTRIES-TITLES RELATIONSHIPS")
+    print("🎬 STEP 5: PROCESSING DIRECTORS TABLE")
     print("="*60)
     
-    print("🔄 Creating temp_countries_titles table...")
-    countries_titles_controller = CountriesTitlesController()
-    countries_titles_controller.create_temp_countries_titles_table()
+    print("🔄 Creating temp_director table...")
+    directors_controller = DirectorsController()
+    directors_controller.create_temp_director_table()
     
     print("📊 Checking processing status...")
-    countries_titles_controller.check_processing_status()
+    directors_controller.check_processing_status()
     
-    print("🔄 Populating the countries_titles table from temp_countries_titles...")
-    countries_titles_controller.populate_countries_titles_table_from_temp()
+    print("🔄 Populating the directors table from temp_director...")
+    directors_controller.populate_directors_table_from_temp()
+
+    # STEP 6: PROCESS COUNTRIES-TITLES RELATIONSHIPS
+    # print("\n" + "="*60)
+    # print("🌍 STEP 6: PROCESSING COUNTRIES-TITLES RELATIONSHIPS")
+    # print("="*60)
+    
+    # print("🔄 Creating temp_countries_titles table...")
+    # countries_titles_controller = CountriesTitlesController()
+    # countries_titles_controller.create_temp_countries_titles_table()
+    
+    # print("📊 Checking processing status...")
+    # countries_titles_controller.check_processing_status()
+    
+    # print("🔄 Populating the countries_titles table from temp_countries_titles...")
+    # countries_titles_controller.populate_countries_titles_table_from_temp()
 
     # # Final status check
     print("\n" + "=" * 80)
