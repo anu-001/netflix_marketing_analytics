@@ -37,27 +37,27 @@ def main():
     print("Processing and saving CSV to database...")
 
     # Initialize the CSV handler
-    netflix_csv = CSVController(csv_path)
+    # netflix_csv = CSVController(csv_path)
     
     # First, try to clean the CSV file if needed
-    try:
-        netflix_csv.save_csv_to_database(
-            table_name="temp_netflix_titles",
-            schema="public"
-        )
-    except Exception as e:
-        print(f"❌ Initial CSV processing failed: {e}")
-        print("🔧 Attempting to clean CSV file first...")
+    # try:
+    #     netflix_csv.save_csv_to_database(
+    #         table_name="temp_netflix_titles",
+    #         schema="public"
+    #     )
+    # except Exception as e:
+    #     print(f"❌ Initial CSV processing failed: {e}")
+    #     print("🔧 Attempting to clean CSV file first...")
         
-        # Clean the CSV file and try again
-        cleaned_csv_path = netflix_csv.clean_csv_file()
+    #     # Clean the CSV file and try again
+    #     cleaned_csv_path = netflix_csv.clean_csv_file()
         
-        # Create a new controller with the cleaned file
-        cleaned_netflix_csv = CSVController(cleaned_csv_path)
-        cleaned_netflix_csv.save_csv_to_database(
-            table_name="temp_netflix_titles",
-            schema="public"
-        )
+    #     # Create a new controller with the cleaned file
+    #     cleaned_netflix_csv = CSVController(cleaned_csv_path)
+    #     cleaned_netflix_csv.save_csv_to_database(
+    #         table_name="temp_netflix_titles",
+    #         schema="public"
+    #     )
 
     # Set missing directors
     #print("Setting missing directors...")
@@ -191,13 +191,27 @@ def main():
     
     print("🔄 Creating temp_director table...")
     directors_controller = DirectorsController()
-    directors_controller.create_temp_director_table()
+    # directors_controller.create_temp_director_table()
     
-    print("📊 Checking processing status...")
-    directors_controller.check_processing_status()
+    # print("📊 Checking processing status...")
+    # directors_controller.check_processing_status()
     
-    print("🔄 Populating the directors table from temp_director...")
-    directors_controller.populate_directors_table_from_temp()
+    # print("🔄 Populating the directors table from temp_director...")
+    # directors_controller.populate_directors_table_from_temp()
+
+    # STEP 5.5: PROCESS DIRECTORS-TITLES RELATIONSHIPS
+    print("\n" + "="*60)
+    print("🎬 STEP 5.5: PROCESSING DIRECTORS-TITLES RELATIONSHIPS")
+    print("="*60)
+    
+    print("🔄 Creating temp_directors_titles table...")
+    directors_controller.create_temp_directors_titles_table()
+    
+    print("📊 Checking directors_titles processing status...")
+    directors_controller.check_directors_titles_processing_status()
+    
+    print("🔄 Populating the directors_titles table from temp_directors_titles...")
+    directors_controller.populate_directors_titles_table_from_temp()
 
     # STEP 6: PROCESS COUNTRIES-TITLES RELATIONSHIPS
     # print("\n" + "="*60)
@@ -240,7 +254,7 @@ def main():
     print("   ")
     print("   JUNCTION TABLES - ERD Compliant Naming (4):")
     print("   ✅ actors_titles (actor_id, title_id)")
-    print("   ✅ director_titles (person_id, title_id)")
+    print("   ✅ directors_titles (director_id, title_id)")
     print("   ✅ categories_titles (category_id, title_id)")
     print("   ✅ countries_titles (country_id, title_id)")
     print("   ")

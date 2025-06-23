@@ -13,15 +13,15 @@ class DirectorTitlesRepository(BaseRepository):
     def __init__(self):
         super().__init__(table_name="public.director_titles", id_column="director_title_id")
 
-    def get_by_person_and_title(self, person_id, title_id):
+    def get_by_director_and_title(self, director_id, title_id):
         """
-        Get director-title relationship by person_id and title_id to avoid duplicates
+        Get director-title relationship by director_id and title_id to avoid duplicates
         """
         try:
             cursor = self.db.get_dict_cursor()
             cursor.execute(
-                f"SELECT * FROM {self.table_name} WHERE person_id = %s AND title_id = %s",
-                (person_id, title_id)
+                f"SELECT * FROM {self.table_name} WHERE director_id = %s AND title_id = %s",
+                (director_id, title_id)
             )
             return cursor.fetchall()
         except Exception as e:
@@ -38,8 +38,8 @@ class DirectorTitlesRepository(BaseRepository):
         try:
             cursor = self.db.get_dict_cursor()
             cursor.execute(
-                f"INSERT INTO {self.table_name} (person_id, title_id) VALUES (%s, %s) RETURNING *",
-                (data.get("person_id"), data.get("title_id"))
+                f"INSERT INTO {self.table_name} (director_id, title_id) VALUES (%s, %s) RETURNING *",
+                (data.get("director_id"), data.get("title_id"))
             )
             result = cursor.fetchone()
             self.db.commit()
